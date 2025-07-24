@@ -1,0 +1,8 @@
+when setting up, please check the list of all auditory devices by
+```devList = PsychPortAudio('GetDevices')```
+Then choose the correct DeviceIndex to replace the [] in line  100:
+```pahandle = PsychPortAudio('Open', [], 1, 3, sampRate, 2);```
+and check if the DefaultSampleRate is consistent with line 48:
+```sampRate = 48000;       % for PsychPortAudio initiation```
+Finally, make sure the system volumn is recorded and make sure to use this 
+volumn for all subjects.
