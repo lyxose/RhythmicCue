@@ -62,8 +62,8 @@ deviceID = input(['Choose correct audio device and input its DeviceIndex ' ...
                   '\n(priority: ASIO > WASAPI > WDM-KS > DS > MNE): ']);
 sampRate = DeviceTable.DefaultSampleRate(DeviceTable.DeviceIndex==deviceID);
 typeSeq  = seqTypes{seqID};        % sequence of schedule conditions, should be balanced across subjects  
-triNum   = 6;                      % trial number of each schedule condition, should be an integer multiple of length(tSOA)
-pretNum  = 6;                      % trial number of threshold stage
+triNum   = 90;                     % trial number of each schedule condition, should be an integer multiple of length(tSOA)
+pretNum  = 60;                      % trial number of threshold stage
 stiD     = 0.05;                   % duration of each beep
 ramp     = 0.004;                  % Fade in and fade out
 ITIs     = [0.8 1.4];              % inter trial interval range (randomly selected in each trial)
@@ -268,8 +268,10 @@ writetable(SubjInfo,'./Data/SubjInfo.csv');
 
 %% main experiment
 for i = pretNum + (1:4*triNum)
-    if mod(i-pretNum, triNum) == 1 
+    if mod(i-pretNum, triNum) == 1 % each block rest 10s+
         showInstruc_audioRest(w,'Rest',instFolder,'space','backspace',10);
+    elseif mod(i-pretNum, 10) == 1 % each 10 trial rest 1s+
+        showInstruc_audioRest(w,'Rest',instFolder,'space','backspace',1);
     end
     Screen('FillOval',w,0,dotRect);
     Screen('Flip',w);
