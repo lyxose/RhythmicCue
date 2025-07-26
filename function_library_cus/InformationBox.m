@@ -13,56 +13,62 @@
 %             [1 3 4 2],[2 3 4 1],[3 1 4 2],[4 3 1 2]
 %             [1 4 2 3],[2 4 1 3],[3 4 2 1],[4 1 2 3]
 %             [1 4 3 2],[2 4 3 1],[3 4 1 2],[4 1 3 2]};
-function [groupID, subjID, session, location, subjName, subjGender, subjAge, threshold, seqType] = InformationBox(modal)
+function [groupID, subjID, subjName, subjGender, subjAge, threshold, seqTypeID] = InformationBox(modal)
     if ~exist('./Data', 'dir')
         mkdir('./Data');
     end    
     infoFilePath = './Data/SubjInfo.csv';
     dateTime = datestr(datetime,'yyyymmddTHHMM');
-    Tag =         {'Header',     'InputPrompt',                                 'DefaultAnswer',  'A',   'V'};
-
-    defaultCell = {'groupID',    [],                                            1,                 0,     0     
-                   'subjID',     [],                                            1,                 0,     0     
-                   'location',   'Enter location, IP or PKU or ... (or Oth):',  'IP',              1,     1     
-                   'subjName',   'Enter Subject Name (QuanPin):',               'MingZipinying',   1,     1     
-                   'subjGender', 'Enter Subject Gender  [Man: M; Woman: F]:'    'M',               1,     1     
-                   'subjAge',    'Enter Subject Age:',                          22,                1,     1     
-                   'thresholdA', 'Enter tgAmp Threshold (unknown: 0):',         0,                 1,     1     
-                   'thresholdV', 'Enter tgAmp Threshold (unknown: 0):',         0,                 1,     1     
-                   'seqTypeA',   'Enter Block Seq. Type (1~24):',               [],               1,     0     
-                   'seqTypeV',   'Enter Block Seq. Type (1~24):',               [],               0,     1     
-                   'dateTA',     'Enter Date in "yyyymmddTHHMM" form:'          [],               1,     0     
-                   'dateTV',     'Enter Date in "yyyymmddTHHMM" form:'          [],               0,     1     
-                   'session1',   [],                                            [],               0,     0     
-                   'session2',   [],                                            [],               0,     0     
-                   'Note1',      [],                                            [],               0,     0     
-                   'Note2',      [],                                            [],               0,     0 };       
+    % describe all var. in SubjInfo table                    
+    Tag =         {'Header',     'InputPrompt',                                                     'DefaultAnswer',  'A',   'V',    'Type'};
+    defaultCell = {'groupID',    [],                                                                1,                 0,     0,     '%d'    
+                   'subjID',     [],                                                                1,                 0,     0,     '%d'    
+                   'location',   'Enter location, e.g. IP | IBP | BFU | BNU | PKU ... (or Oth):',   'IP',              1,     1,     '%s'    
+                   'subjName',   'Enter Subject Name (QuanPin):',                                   'MingZipinying',   1,     1,     '%s'    
+                   'subjGender', 'Enter Subject Gender  [Man: M; Woman: F]:'                        'M',               1,     1,     '%s'    
+                   'subjAge',    'Enter Subject Age:',                                              22,                1,     1,     '%d'    
+                   'thresholdA', 'Enter tgAmp Threshold (unknown: 0):',                             0,                 1,     0,     '%d'    
+                   'thresholdV', 'Enter tgAmp Threshold (unknown: 0):',                             0,                 0,     1,     '%d'    
+                   'seqTypeA',   'Enter Block Seq. Type (1~24):',                                   0,                 1,     0,     '%d'    
+                   'seqTypeV',   'Enter Block Seq. Type (1~24):',                                   0,                 0,     1,     '%d'    
+                   'dateTA',     'Enter Date in "yyyymmddTHHMM" form:'                              [],                1,     0,     '%s'    
+                   'dateTV',     'Enter Date in "yyyymmddTHHMM" form:'                              [],                0,     1,     '%s'    
+                   'session1',   [],                                                                [],                0,     0,     '%s'    
+                   'session2',   [],                                                                [],                0,     0,     '%s'    
+                   'Note1',      [],                                                                [],                0,     0,     '%s'    
+                   'Note2',      [],                                                                [],                0,     0,     '%s'};       
     defaultTable  = cell2table(defaultCell,"VariableNames",Tag);    
     defaultTable.Properties.RowNames = defaultTable.Header;
     defaultTable.Header = [];
     header = transpose(defaultTable.Properties.RowNames);
+    formator = [defaultTable.Type{:}];
     exampleInfo = transpose(defaultTable.DefaultAnswer);
     
-    modalMask = transpose(defaultTable.(modal)==1);     % select variables will be set in specific modal
-    seqType = sprintf('seqType%s',modal);               % to get the correct colomn for each modal
-    oseqType = sprintf('seqType%s',setdiff('VA',modal));% get the other modal label to get the corresponding data
+    modalMark = transpose(defaultTable.(modal)==1);     % select variables will be set in specific modal
+    seqType = ['seqType',modal];               % to get the correct colomn for each modal
+    oseqType = ['seqType',setdiff('VA',modal)];% get the other modal label to get the corresponding data
     dateT = sprintf('dateT%s',modal);                   % to get the correct colomn for each modal
 
     groupID = input('Enter Group ID (int):');
     
     newSubj = true;
+    reRun = false;
 
 
     %% Get default answer
+    
+    % threshold set to 0 for unknown situation
+    threshold = 0;
+
     % first subject, creat table
     if ~exist(infoFilePath, 'file')
         subjID  = input('Enter Subject ID (int, max: 99):');
-        exampleInfo{strcmp(header,seqType)}=1;
+        seqTypeID = 1;
         rowIdx = 1;
 
     % following subjects, match existing information
     else
-        SubjInfo = readtable(infoFilePath,'Format','%d%d%s%s%s%d%d%d%d%d%s%s%s%s%s%s');
+        SubjInfo = readtable(infoFilePath,'Format',formator);
         % Get group members
         groupSubset = SubjInfo.groupID == groupID;
         if any(groupSubset)
@@ -74,42 +80,40 @@ function [groupID, subjID, session, location, subjName, subjGender, subjAge, thr
         rowIdx = find(SubjInfo.subjID == subjID & SubjInfo.groupID == groupID,1);
         % IF existing
         if ~isempty(rowIdx)
-            newSubj = false;
             exampleInfo = table2cell(SubjInfo(rowIdx,:));
+            % IF second session
             if ~strcmp(SubjInfo.session1(rowIdx),modal)
+                newSubj = false;
                 % choose a different seqType
-                exampleInfo{strcmp(header,seqType)} = balanCond([SubjInfo{groupSubset,seqType};SubjInfo{rowIdx,oseqType}],SubjInfo{~groupSubset,seqType},1:24);
+                seqTypeID = balanCond([SubjInfo{groupSubset,seqType};SubjInfo{rowIdx,oseqType}],SubjInfo{~groupSubset,seqType},1:24);
+            else
+                % IF re-Run in same condition, do not change any setting (except date)
+                reRun = true;
+                seqTypeID = exampleInfo{strcmp(header,seqType)};
             end
-            % IF re-Run in same condition, do not change setting (except date)
         % IF new one
         else
             rowIdx = height(SubjInfo)+1;
-            exampleInfo{strcmp(header,seqType)} = balanCond(SubjInfo{groupSubset,seqType},SubjInfo{~groupSubset,seqType},1:24);
-%             SubjInfo = table2cell(SubjInfo);
-%             SubjInfo = vertcat(SubjInfo,exampleInfo); %  to avoid type error
-%             SubjInfo = cell2table(SubjInfo,'VariableNames', header);
-            % Select least frequent seqType (1-24) in groupSubset; 
-%             defaultanswer = exampleInfo(modalMask);
-
-%             % 需要优先匹配另一个group已有的条件
-%             if isempty(diffset)
-%             else
-%             usedTypes = histcounts(SubjInfo(groupSubset,seqType),1:25);
-%             typeCandi = find(usedTypes == min(usedTypes));  % use find(xx,1) can make the type be selected in numerical order
-%             rest_seqType = typeCandi(randi(numel(typeCandi))); % random choice if ties
-%             defaultanswer{7} = rest_seqType;
+            seqTypeID = balanCond(SubjInfo{groupSubset,seqType},SubjInfo{~groupSubset,seqType},1:24);
         end
-    end    
-%         SubjInfo= table2cell(SubjInfo);
-     
+        % get average threshold as the guessed staricase start point
+        threhKey = ['threshold',modal];
+        priorThreIdx = groupSubset & SubjInfo.(threhKey)~=0;
+        if any(priorThreIdx) && ~reRun
+            threshold = mean(SubjInfo(priorThreIdx, threhKey));
+            exampleInfo{strcmp(header,threhKey)} = threshold;
+        end
 
+    end    
+    % Record date and time of start running
     exampleInfo{strcmp(header,dateT)}=dateTime;
+    exampleInfo{strcmp(header,seqType)}=seqTypeID;
     
     %% Show information box
-    prompt = defaultTable.InputPrompt(modalMask);
+    prompt = defaultTable.InputPrompt(modalMark);
     name=sprintf('Info_%s_G%d_Subj%d', modal, subjID);
     numlines=1;
-    defaultanswer = exampleInfo(modalMask);
+    defaultanswer = exampleInfo(modalMark);
     defaultanswer = cellfun(@(x) num2str(x), defaultanswer, 'UniformOutput', false);
     answer   = inputdlg(prompt,name,numlines,defaultanswer);
 
@@ -117,8 +121,7 @@ function [groupID, subjID, session, location, subjName, subjGender, subjAge, thr
     exampleInfo{strcmp(header,'groupID')} = groupID;
     exampleInfo{strcmp(header,'subjID')} = subjID;
     % IF this is 1st session or its re-Run
-    if newSubj || strcmp(SubjInfo.session1(rowIdx),modal)
-%     if isempty(SubjInfo.session1{rowIdx}) || strcmp(SubjInfo.session1(rowIdx),modal)
+    if newSubj
         exampleInfo{strcmp(header,'session1')} =modal;
     % This is the 2nd session
     else
@@ -128,20 +131,15 @@ function [groupID, subjID, session, location, subjName, subjGender, subjAge, thr
         SubjInfo = exampleInfo;
     else
         SubjInfo= table2cell(SubjInfo);
-        exampleInfo(modalMask) = transpose(answer);
+        exampleInfo(modalMark) = transpose(answer);
         SubjInfo(rowIdx,:) = exampleInfo;
     end
+    
+    % get vars for output
+    subjName = exampleInfo{strcmp(header,'subjName')};
+    subjGender = exampleInfo{strcmp(header,'subjGender')};
+    subjAge = exampleInfo{strcmp(header,'subjAge')};
 
-%     session  = str2double(answer{1});  
-%     location = answer{2};   % IP for Institute of Psychology, CAS for other institutd in CAS, Oth for other subjects
-%     subjName  = answer{3};
-%     subjGender= answer{4};
-%     subjAge   = str2double(answer{5});
-%     threshold = str2double(answer{6});  % measured contrast threshold 
-%     seqType = str2double(answer{7});
-%     THRdate = str2double(answer{8});
-%     % update table
-%     SubjInfo(rowIdx,:) = {groupID, subjID, session, {location}, {subjName}, {subjGender}, subjAge, threshold, seqType, THRdate, {''}};
+    % Rewrite the table file
     writecell([header;SubjInfo],infoFilePath);
-
 return

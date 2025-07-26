@@ -16,7 +16,7 @@ addpath('function_library_cus');
 instFolder = './Instructions';
 
 % get SubjInfo
-[groupID, subjID, session, location, subjName, subjGender, subjAge, gstgAmp, seqID] = InformationBox;
+[groupID, subjID, subjName, subjGender, subjAge, gstgAmp, seqID] = InformationBox('A');
 headDist = input('Distance between eyes and screen (cm):');
 
 % block sequence should be randomized across subjects
@@ -260,7 +260,7 @@ plot(results.tgAmp(results.ID<0));
 % update table
 SubjInfo = readtable('./Data/SubjInfo.csv');
 rowIdx = find(SubjInfo.subjID == subjID & SubjInfo.groupID == groupID,1);
-SubjInfo(rowIdx,'threshold') = {tgAmp};
+SubjInfo(rowIdx,'thresholdA') = {tgAmp};
 writetable(SubjInfo,'./Data/SubjInfo.csv');
 
 % input('Continue to Formal Task?')
@@ -325,13 +325,13 @@ end
 %%
 sca;
 PsychPortAudio('Close',pahandle);
-save(sprintf('./Data/Result_G%.0f_Sub%.0f_Ses%.0f_%s_%s_%s',groupID, subjID, session, location, subjName, DTstr),'results')
+save(sprintf('./Data/A_Result_G%.0f_Sub%.0f_%s_%s',groupID, subjID, subjName, DTstr),'results')
 if saveRaw
-    save(sprintf('./Data/EXP_G%.0f_Sub%.0f_Ses%.0f_%s_%s_%s',groupID, subjID, session, location, subjName, DTstr))
+    save(sprintf('./Data/A_EXP_G%.0f_Sub%.0f_%s_%s',groupID, subjID, subjName, DTstr))
 end
 catch me
     sca;
-    save(sprintf('./Data/Interrupted/EXPINT_G%.0f_Sub%.0f_Ses%.0f_%s_%s_%s',groupID,subjID, session, location, subjName, DTstr))
+    save(sprintf('./Data/Interrupted/A_EXPINT_G%.0f_Sub%.0f_%s_%s',groupID, subjID, subjName, DTstr))
     PsychPortAudio('Close');
 end
 
