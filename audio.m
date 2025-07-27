@@ -62,8 +62,9 @@ deviceID = input(['Choose correct audio device and input its DeviceIndex ' ...
                   '\n(priority: ASIO > WASAPI > WDM-KS > DS > MNE): ']);
 sampRate = DeviceTable.DefaultSampleRate(DeviceTable.DeviceIndex==deviceID);
 typeSeq  = seqTypes{seqID};        % sequence of schedule conditions, should be balanced across subjects  
-triNum   = 90;                     % trial number of each schedule condition, should be an integer multiple of length(tSOA)
-pretNum  = 60;                      % trial number of threshold stage
+triNum   = 60;                     % trial number of each schedule condition, should be an integer multiple of length(tSOA)
+pretNum  = 180;                    % maximum pretrial number of threshold stage
+revTimes = 10;                     % stop threshold stage when reaching this reverse times
 stiD     = 0.05;                   % duration of each beep
 ramp     = 0.004;                  % Fade in and fade out
 ITIs     = [0.8 1.4];              % inter trial interval range (randomly selected in each trial)
@@ -76,9 +77,10 @@ noiseAmp = 0.1;                    % 90% amplitude is remained for titrating tar
 cueAmp   = 0.4;                    % fixed amplitude which should be clear enough for all person
 fixSize  = 1.2;                    % diameter of fixation dot, in degree 
 if gstgAmp == 0
-    gstgAmp  = 0.08;                   % guessed amplitude of target (as the start point of staircase)
+    gstgAmp  = 0.05;               % guessed amplitude of target (as the start point of staircase)
 end
-ampStep  = gstgAmp/10;             % staircase step
+ampStep  = gstgAmp/10;             % staircase step of target amplitude
+dynaStep = 0.8;                    % dynamicly decrease after each reverse (set to 1 to keep stepsize consistent)
 
 % trial-results table
 [~,block] = expRun.generateTrialList('ID',nan,'cueType', ...
@@ -180,7 +182,7 @@ while 1
     end
 end
 % generate embedded stream
-% quest or 'one up three down' staircase to get mixture ratio
+% 'one up two down' staircase to get mixture ratio
 tgAmp = gstgAmp;
 corrCount = 0;  % counting correct times for staircase procedure
 scr = max(Screen('Screens'));
@@ -195,7 +197,11 @@ if sum(keyCode) ~= 0    % make sure only one key is pressed
     error('Check keyboard hardware!!! A certain key is pressed! %s',KbName(keyCode))
 end
 
+lastChange = 0; 
 for i = 1:pretNum
+    if mod(i, 10) == 1 && i>1% each 10 trial rest 1s+
+        showInstruc_audioRest(w,'Rest',instFolder,'space','backspace',1);
+    end
     Screen('FillOval',w,0,dotRect);
     Screen('Flip',w);
     cSOA = results.cSOA{i};
@@ -240,23 +246,44 @@ for i = 1:pretNum
         WaitSecs(0.005);
     end
     [startTime, endPositionSecs, xruns, estStopTime] = PsychPortAudio('Stop', pahandle,1);
-%     GetSecs-tt-(ITI+sum(cSOA)+tSOA+maxRT)
     % staircase: one-up three-down
     if results.judge(i)==0
         tgAmp = tgAmp+ampStep;
         corrCount = 0;
+        if lastChange(end)~=-1
+            lastChange = [lastChange,-1];
+            ampStep = dynaStep*ampStep;
+        end
     else
         corrCount = corrCount + 1;
-        if corrCount==3
+        if corrCount==2
             tgAmp = tgAmp-ampStep;
             corrCount = 0;
+            if lastChange(end)~=1
+                lastChange = [lastChange,1];
+                ampStep = dynaStep*ampStep;
+            end
         end
     end     
     results.tgAmp(i)=tgAmp;
     fprintf('#%.0f  %.4fs, "%s", judge-%.0f, tgAmp-%.3f, temporalErr-%.4fs\n',results.ID(i), RT, KbName(keyCode), results.judge(i), tgAmp, estStopTime-timeout)
+    % Check if reversed for enough times and keeped this amp once, then break 
+    if length(lastChange) >= 2+revTimes && corrCount~=0 % 2+ because of the 0-head and the first step should not be considered
+        break
+    end
 end
+
+% visualization pretrials 
 figure;
-plot(results.tgAmp(results.ID<0));
+plot(results.tgAmp(1:i));
+
+% IF reach maxium pretrial number
+if i == pretNum
+    sca;
+    warning('Not enough reverse times(%d)!!', revTimes)
+    input('Press Ctrl+C to abort or Enter to continue.')
+    [w,winRect] = Screen('OpenWindow',scr,127);
+end
 % update table
 SubjInfo = readtable('./Data/SubjInfo.csv');
 rowIdx = find(SubjInfo.subjID == subjID & SubjInfo.groupID == groupID,1);
@@ -331,6 +358,8 @@ if saveRaw
 end
 catch me
     sca;
+    disp(me);
+    disp(me.stack);
     save(sprintf('./Data/Interrupted/A_EXPINT_G%.0f_Sub%.0f_%s_%s',groupID, subjID, subjName, DTstr))
     PsychPortAudio('Close');
 end
