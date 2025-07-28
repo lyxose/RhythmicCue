@@ -1,7 +1,14 @@
+
 clear;
 clc;
 sca;
 KbName('UnifyKeyNames'); 
+% PsychDebugWindowConfiguration;
+
+[keyIsDown, ~, keyCode] = KbCheck;
+if sum(keyCode) ~= 0    % make sure only one key is pressed
+    error('Check keyboard hardware!!! A certain key is pressed! %s',KbName(keyCode))
+end
 
 if ~exist('./Data', 'dir')
     mkdir('./Data');
@@ -16,7 +23,7 @@ addpath('function_library_cus');
 instFolder = './Instructions';
 
 % get SubjInfo
-[groupID, subjID, subjName, subjGender, subjAge, gstgAmp, seqID] = InformationBox('A');
+[groupID, subjID, subjName, subjGender, subjAge, gstgAmp, seqID] = InformationBox('V');
 headDist = input('Distance between eyes and screen (cm):');
 
 % block sequence should be randomized across subjects
@@ -65,27 +72,29 @@ typeSeq  = seqTypes{seqID};        % sequence of schedule conditions, should be 
 triNum   = 60;                     % trial number of each schedule condition, should be an integer multiple of length(tSOA)
 pretNum  = 180;                    % maximum pretrial number of threshold stage
 revTimes = 10;                     % stop threshold stage when reaching this reverse times
-stiD     = 0.05;                   % duration of each beep
+stiD     = 0.1;                    % duration of each flash
 ramp     = 0.004;                  % Fade in and fade out
 ITIs     = [0.8 1.4];              % inter trial interval range (randomly selected in each trial)
 maxRT    = 2;                      % skip to next trial in 2s (facilitating post-target EEG analysis)
 cFreq    = 1750;                   % pitch of cue
-tFreq    = [2000 1500];            % pitch of target
+tTilt    = [45 135];               % target orientation conditions
 keys = {'UpArrow', 'DownArrow'};   % response keyName
 keyCodes = KbName(keys);           % response keyCodes
-noiseAmp = 0.1;                    % 90% amplitude is remained for titrating target loudness
-cueAmp   = 0.4;                    % fixed amplitude which should be clear enough for all person
-fixSize  = 1.2;                    % diameter of fixation dot, in degree 
+noiseAmp = 0.2;                    % background contrast
+cueAmp   = 0.3;                    % fixed contrast which should be clear enough for all person
+GaborWidth = 1.2; % target width in degree
+GaborSF = 6;        % cycle per degree
+bgWidth = 15;       % background width, in degree
 if gstgAmp == 0
-    gstgAmp  = 0.05;               % guessed amplitude of target (as the start point of staircase)
+    gstgAmp  = 0.05;               % guessed contrast of target (as the start point of staircase)
 end
 ampStep  = gstgAmp/10;             % staircase step of target amplitude
 dynaStep = 0.8;                    % dynamicly decrease after each reverse (set to 1 to keep stepsize consistent)
 
 % trial-results table
 [~,block] = expRun.generateTrialList('ID',nan,'cueType', ...
-    nan,'t0',nan,'ITI',nan,'cSOA',nan,'tSOA',tSOAs.AU,'tFreq', ...
-    1:length(tFreq),'tgAmp',nan,'tgTime',nan,'RT',nan, ...
+    nan,'t0',nan,'ITI',nan,'cSOA',nan,'tSOA',tSOAs.AU,'tTilt', ...
+    1:length(tTilt),'tgAmp',nan,'tgTime',nan,'RT',nan, ...
     'judge',0,'soaSeed',nan,'noiseSeed',nan);
 % threshold stage
 repTimes = pretNum / height(block);  
@@ -136,30 +145,53 @@ try
 %% staircase titrating task
 pahandle = PsychPortAudio('Open', deviceID, 1, 3, sampRate, 2);
 
-% titrate white noise volume
-PsychPortAudio('Volume',pahandle,0.5);
-while 1
-    WN = noiseAmp.*(2.*rand(1,sampRate)-1);
-    PsychPortAudio('FillBuffer', pahandle, [WN; WN]);
-    PsychPortAudio('Start', pahandle, 1, 0, 1);
-    inp = input('test the next volume(0~1), or input 0 to use current volume:  ');
-    PsychPortAudio('Stop',pahandle);
-    if inp == 0
-        break
-    else
-        PsychPortAudio('Volume',pahandle,inp);
-    end
-end
+
+scr = max(Screen('Screens'));
+[wpnt,winRect] = Screen('OpenWindow',scr,127);
+scWidth = Screen('DisplaySize',scr)/10; % in cm
+ut = UT(scWidth,winRect(3),headDist,false);
+dotpRad = ut.deg2pix(GaborWidth)/2; % radius of fixation dot in pixcel
+dotRect = [-dotpRad,-dotpRad,dotpRad,dotpRad]+[winRect(3),winRect(4),winRect(3),winRect(4)]./2;
+bgCenter = round(winRect(3:4)/2);
+
 
 % play example stimulus, then check
-streams{1} = genStream(0,cSOAs.AP2(ALTs(randi(size(ALTs,1)),:)),cFreq,rand(1),tFreq(1),maxRT,stiD,sampRate,noiseAmp,cueAmp,0.25,ramp);
-streams{2} = genStream(0,cSOAs.AP2(ALTs(randi(size(ALTs,1)),:)),cFreq,rand(1),tFreq(2),maxRT,stiD,sampRate,noiseAmp,cueAmp,0.25,ramp);
+streams{1} = arrayfun(@(deg) genStimTex(wpnt, winRect, ut, noiseAmp, cueAmp, bgCenter, GaborSF, GaborWidth, deg, bgWidth,randi(10000)), [zeros(length(cSOAs.AU),1)+90;  45]);
+streams{2} = arrayfun(@(deg) genStimTex(wpnt, winRect, ut, noiseAmp, cueAmp, bgCenter, GaborSF, GaborWidth, deg, bgWidth,randi(10000)), [zeros(length(cSOAs.AU),1)+90; 135]);
+
 while 1
-    inp = input('Which target to play? (Enter 1/2 to choose, 0 to skip): ');
+    disp('Which target to play? (Press 1/2 to choose, 0 to skip): ');
+    while 1
+        [keyIsDown, keyT, keyCode] = KbCheck;
+            if keyCode(KbName('1!')) ||  keyCode(KbName('1'))% key '1' is pressed
+                inp = 1;
+                break
+            elseif keyCode(KbName('2@')) || keyCode(KbName('2')) %  key '2' is pressed
+                inp = 2;
+                break
+            elseif keyCode(KbName('0)')) || keyCode(KbName('0')) %  key '0' is pressed
+                inp = 0;
+                break
+            end
+        checkend;
+        WaitSecs(0.005);
+    end
     if inp > 0
-        PsychPortAudio('FillBuffer', pahandle, [streams{inp}; streams{inp}]);
-        PsychPortAudio('Start', pahandle, 1, 0, 1);
-        PsychPortAudio('Stop', pahandle,1);
+        beep = MakeBeep(cFreq, min(ITIs));
+        PsychPortAudio('FillBuffer', pahandle, [beep;beep]);
+        t0 = PsychPortAudio('Start', pahandle, 1, 0, 1);  % no-repeat, start rightnow, get the actual timing
+
+        tempSeq = GetSecs + rand*diff(ITIs)+min(ITIs) + [0,cumsum(cSOAs.AP2(ALTs(randi(size(ALTs,1)),:)))];
+        fbTs = zeros(1,length(tempSeq));
+        for i = 1:length(tempSeq)
+            stream = streams{inp};
+            Screen('Drawtexture',wpnt, stream(i))
+            fbTs(i) = Screen('Flip', wpnt, tempSeq(i));
+            Screen('Flip', wpnt, tempSeq(i)+stiD);
+        end
+        disp('Temporal Error = ')
+        disp(fbTs-tempSeq);
+        
         timeout = GetSecs+2;
         while GetSecs < timeout
             [keyIsDown, keyT, keyCode] = KbCheck;
@@ -181,29 +213,16 @@ while 1
         break
     end
 end
-% generate embedded stream
 % 'one up two down' staircase to get mixture ratio
 tgAmp = gstgAmp;
 corrCount = 0;  % counting correct times for staircase procedure
-scr = max(Screen('Screens'));
-[w,winRect] = Screen('OpenWindow',scr,127);
-scWidth = Screen('DisplaySize',scr)/10; % in cm
-ut = UT(scWidth,winRect(3),headDist,false);
-dotpRad = ut.deg2pix(fixSize)/2; % radius of fixation dot in pixcel
-dotRect = [-dotpRad,-dotpRad,dotpRad,dotpRad]+[winRect(3),winRect(4),winRect(3),winRect(4)]./2;
-
-[keyIsDown, ~, keyCode] = KbCheck;
-if sum(keyCode) ~= 0    % make sure only one key is pressed
-    error('Check keyboard hardware!!! A certain key is pressed! %s',KbName(keyCode))
-end
 
 lastChange = 0; 
 for i = 1:pretNum
     if mod(i, 10) == 1 && i>1% each 10 trial rest 1s+
-        showInstruc_audioRest(w,'Rest',instFolder,'space','backspace',1);
+        showInstruc_audioRest(wpnt,'Rest',instFolder,'space','backspace',1);
     end
-    Screen('FillOval',w,0,dotRect);
-    Screen('Flip',w);
+    % get trial parameters    
     cSOA = results.cSOA{i};
     nanIndices = isnan(cSOA);  % find nan
     if any(nanIndices)
@@ -217,23 +236,39 @@ for i = 1:pretNum
     tSOA = results.tSOA(i);
     noiseSeed = results.noiseSeed(i);
     ITI = results.ITI(i);
-    stream = genStream(ITI, cSOA, cFreq, tSOA, tFreq(results.tFreq(i)), maxRT, stiD, sampRate, noiseAmp, cueAmp, tgAmp, ramp, noiseSeed);
-    PsychPortAudio('FillBuffer', pahandle, [stream; stream]);
+
+    stream = arrayfun(@(deg) genStimTex(wpnt, winRect, ut, noiseAmp, tgAmp, bgCenter, GaborSF, GaborWidth, deg, bgWidth, randi(10000)), [zeros(length(cSOAs.AU),1)+90;  tTilt(results.tTilt(i))],'UniformOutput', false);
+
+    % Show fixation with pure beep
+    beep = MakeBeep(cFreq, min(ITIs));
+    PsychPortAudio('FillBuffer', pahandle, [beep;beep]);
     t0 = PsychPortAudio('Start', pahandle, 1, 0, 1);  % no-repeat, start rightnow, get the actual timing
-    % tt = GetSecs;
-    results.t0(i) = t0;
-    tgTime = t0+ITI+sum(cSOA)+tSOA;
+    Screen('FillOval',wpnt,0,dotRect);
+    Screen('Flip',wpnt);
+    
+
+    Screen('Flip',wpnt,t0+min(ITIs));   % central dot indicates that the trial is started, which disappeared after the min ITI
+    
+    % display the sequence of stimulus
+    tempSeq = GetSecs + ITI + [0,cumsum(cSOA)];
+    fbTs = zeros(1,length(tempSeq));
+
+    for j = 1:length(tempSeq)
+        Screen('Drawtexture',wpnt, stream{j})
+        fbTs(j) = Screen('Flip', wpnt, tempSeq(j));
+        Screen('Flip', wpnt, tempSeq(j)+stiD);
+    end
+    tgTime = fbTs(end);
     results.tgTime(i) = tgTime;
-    Screen('Flip',w,t0+min(ITIs));   % central dot indicates that the trial is started, which disappeared after the min ITI
-    WaitSecs('UntilTime',tgTime);
     timeout = tgTime + maxRT;  % 
+
     RT = nan;
     while GetSecs < timeout
         [keyIsDown, keyT, keyCode] = KbCheck;
         if sum(keyCode) == 1    % make sure only one key is pressed
-            if keyCode(KbName(keys{results.tFreq(i)})) % correct key is pressed
+            if keyCode(KbName(keys{results.tTilt(i)})) % correct key is pressed
                 results.judge(i) = 1;
-            elseif keyCode(KbName(keys{3-results.tFreq(i)})) % wrong key is pressed
+            elseif keyCode(KbName(keys{3-results.tTilt(i)})) % wrong key is pressed
                 results.judge(i) = 0;
             end
             if any(keyCode(keyCodes))
@@ -245,7 +280,12 @@ for i = 1:pretNum
         checkend;
         WaitSecs(0.005);
     end
-    [startTime, endPositionSecs, xruns, estStopTime] = PsychPortAudio('Stop', pahandle,1);
+    
+    WaitSecs('UntilTime', timeout);
+
+%     disp('Temporal Error = ')
+%     disp(fbTs-tempSeq);
+    
     % staircase: one-up two-down
     if results.judge(i)==0
         tgAmp = tgAmp+ampStep;
@@ -266,7 +306,7 @@ for i = 1:pretNum
         end
     end     
     results.tgAmp(i)=tgAmp;
-    fprintf('#%.0f  %.4fs, "%s", judge-%.0f, tgAmp-%.3f, temporalErr-%.4fs\n',results.ID(i), RT, KbName(keyCode), results.judge(i), tgAmp, estStopTime-timeout)
+    fprintf('#%.0f  %.4fs, "%s", judge-%.0f, tgAmp-%.3f, sumTemporalErr-%.4fs\n',results.ID(i), RT, KbName(keyCode), results.judge(i), tgAmp, sum(abs(tempSeq-fbTs)))
     % Check if reversed for enough times and keeped this amp once, then break 
     if length(lastChange) >= 2+revTimes && corrCount~=0 % 2+ because of the 0-head and the first step should not be considered
         break
@@ -282,7 +322,7 @@ if i == pretNum
     sca;
     warning('Not enough reverse times(%d)!!', revTimes)
     input('Press Ctrl+C to abort or Enter to continue.')
-    [w,winRect] = Screen('OpenWindow',scr,127);
+    [wpnt,winRect] = Screen('OpenWindow',scr,127);
 end
 % update table
 SubjInfo = readtable('./Data/SubjInfo.csv');
@@ -294,14 +334,12 @@ writetable(SubjInfo,'./Data/SubjInfo.csv');
 
 
 %% main experiment
+
 for i = pretNum + (1:4*triNum)
-    if mod(i-pretNum, triNum) == 1 % each block rest 10s+
-        showInstruc_audioRest(w,'Rest',instFolder,'space','backspace',10);
-    elseif mod(i-pretNum, 10) == 1 % each 10 trial rest 1s+
-        showInstruc_audioRest(w,'Rest',instFolder,'space','backspace',1);
+    if mod(i, 10) == 1 && i>1% each 10 trial rest 1s+
+        showInstruc_audioRest(wpnt,'Rest',instFolder,'space','backspace',1);
     end
-    Screen('FillOval',w,0,dotRect);
-    Screen('Flip',w);
+    % get trial parameters    
     cSOA = results.cSOA{i};
     nanIndices = isnan(cSOA);  % find nan
     if any(nanIndices)
@@ -315,23 +353,39 @@ for i = pretNum + (1:4*triNum)
     tSOA = results.tSOA(i);
     noiseSeed = results.noiseSeed(i);
     ITI = results.ITI(i);
-    stream = genStream(ITI, cSOA, cFreq, tSOA, tFreq(results.tFreq(i)), maxRT, stiD, sampRate, noiseAmp, cueAmp, tgAmp, ramp, noiseSeed);
-    PsychPortAudio('FillBuffer', pahandle, [stream; stream]);
-    % tt = GetSecs;
+
+    stream = arrayfun(@(deg) genStimTex(wpnt, winRect, ut, cueAmp, tgAmp, bgCenter, GaborSF, GaborWidth, deg, bgWidth, randi(10000)), [zeros(length(cSOAs.AU),1)+90;  tTilt(results.tTilt(i))],'UniformOutput', false);
+
+    % Show fixation with pure beep
+    beep = MakeBeep(cFreq, min(ITIs));
+    PsychPortAudio('FillBuffer', pahandle, [beep;beep]);
     t0 = PsychPortAudio('Start', pahandle, 1, 0, 1);  % no-repeat, start rightnow, get the actual timing
-    results.t0(i) = t0;
-    tgTime = t0+ITI+sum(cSOA)+tSOA;
-    Screen('Flip',w,t0+min(ITIs));   % central dot indicates that the trial is started, which disappeared after the min ITI
+    Screen('FillOval',wpnt,0,dotRect);
+    Screen('Flip',wpnt);
+    
+
+    Screen('Flip',wpnt,t0+min(ITIs));   % central dot indicates that the trial is started, which disappeared after the min ITI
+    
+    % display the sequence of stimulus
+    tempSeq = GetSecs + ITI + [0,cumsum(cSOA)];
+    fbTs = zeros(1,length(tempSeq));
+    for j = 1:length(tempSeq)
+        Screen('Drawtexture',wpnt, stream{j})
+        fbTs(j) = Screen('Flip', wpnt, tempSeq(j));
+        Screen('Flip', wpnt, tempSeq(j)+stiD);
+    end
+    tgTime = fbTs(end);
+    Screen('Flip', wpnt, tgTime+stiD);
     results.tgTime(i) = tgTime;
-    WaitSecs('UntilTime',tgTime);
     timeout = tgTime + maxRT;  % 
+
     RT = nan;
     while GetSecs < timeout
         [keyIsDown, keyT, keyCode] = KbCheck;
         if sum(keyCode) == 1    % make sure only one key is pressed
-            if keyCode(KbName(keys{results.tFreq(i)})) % correct key is pressed
+            if keyCode(KbName(keys{results.tTilt(i)})) % correct key is pressed
                 results.judge(i) = 1;
-            elseif keyCode(KbName(keys{3-results.tFreq(i)})) % wrong key is pressed
+            elseif keyCode(KbName(keys{3-results.tTilt(i)})) % wrong key is pressed
                 results.judge(i) = 0;
             end
             if any(keyCode(keyCodes))
@@ -343,10 +397,17 @@ for i = pretNum + (1:4*triNum)
         checkend;
         WaitSecs(0.005);
     end
-    [startTime, endPositionSecs, xruns, estStopTime] = PsychPortAudio('Stop', pahandle,1);
+    WaitSecs('UntilTime', timeout);
 
+%     disp('Temporal Error = ')
+%     disp(fbTs-tempSeq);
+    
     results.tgAmp(i)=tgAmp;
-    fprintf('#%.0f  %.4fs, "%s", judge-%.0f, temporalErr-%.4fs\n',results.ID(i),RT,KbName(keyCode),results.judge(i),estStopTime-timeout)
+    fprintf('#%.0f  %.4fs, "%s", judge-%.0f, tgAmp-%.3f, sumTemporalErr-%.4fs\n',results.ID(i), RT, KbName(keyCode), results.judge(i), tgAmp, sum(abs(tempSeq-fbTs)))
+    % Check if reversed for enough times and keeped this amp once, then break 
+    if length(lastChange) >= 2+revTimes && corrCount~=0 % 2+ because of the 0-head and the first step should not be considered
+        break
+    end
 end
 
 %%
