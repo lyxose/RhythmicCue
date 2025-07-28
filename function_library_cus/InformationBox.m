@@ -111,7 +111,7 @@ function [groupID, subjID, subjName, subjGender, subjAge, threshold, seqTypeID] 
     
     %% Show information box
     prompt = defaultTable.InputPrompt(modalMark);
-    name=sprintf('Info_%s_G%d_Subj%d', modal, subjID);
+    name=sprintf('Info_%s_G%d_Subj%d', modal, groupID, subjID);
     numlines=1;
     defaultanswer = exampleInfo(modalMark);
     defaultanswer = cellfun(@(x) num2str(x), defaultanswer, 'UniformOutput', false);
