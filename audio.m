@@ -2,6 +2,8 @@ clear;
 clc;
 sca;
 KbName('UnifyKeyNames'); 
+% PsychDebugWindowConfiguration;
+% DisableKeysForKbCheck(KbName('f22'));
 
 if ~exist('./Data', 'dir')
     mkdir('./Data');
@@ -44,7 +46,7 @@ rdSOA    = [0.4 0.9];              % the range of the random SOA in AP3 and AU c
 tSOAp    = [1   1   1];    % the probability distribution of each tSOA condition (still unused)
 % 1. periodic predictable
 cSOAs.PP  = [1 1 1 1 1 1 1].*SOA;
-tSOAs.PP = [1/2 2/2 3/2].*SOA;
+tSOAs.PP  = [1/2 2/2 3/2].*SOA;
 % 2. aperiodic predictable (control the last beat)
 cSOAs.AP1 = [1.56 1.48 1.40 1.32 1.24 1.16 1.08].*SOA;
 tSOAs.AP1 = [1/2 2/2 3/2].*SOA;
@@ -100,15 +102,17 @@ results = preblock(randperm(height(preblock)), :);
 results.cueType = repmat({'AU'},pretNum,1);
 results.cSOA = repmat({cSOAs.AU},pretNum,1);
 % formal task
+triNum = triNum / 2; % split to 2 part 
 repTimes = triNum / height(block);  
-block = repmat(block, repTimes, 1);  
-for type = cueTypes
+block = repmat(block, repTimes, 1);   
+for type = [cueTypes, cueTypes]
     newblock = block;
     newblock.cueType = repmat(type,triNum,1);
     newblock.cSOA = repmat({cSOAs.(type{1})},triNum,1);
     newblock.tSOA = repmat(transpose(tSOAs.(type{1})),triNum/length(tSOAs.(type{1})),1);
     results = [results; newblock(randperm(height(block)), :)];
 end
+triNum = triNum * 2;
 results.ITI = rand(height(results),1)*diff(ITIs) + ITIs(1);
 results.soaSeed = randi(2^32-1,height(results),1);
 results.noiseSeed = randi(2^32-1,height(results),1);

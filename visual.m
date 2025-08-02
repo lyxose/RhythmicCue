@@ -4,6 +4,7 @@ clc;
 sca;
 KbName('UnifyKeyNames'); 
 % PsychDebugWindowConfiguration;
+% DisableKeysForKbCheck(KbName('f22'));
 
 if ~exist('./Data', 'dir')
     mkdir('./Data');
@@ -104,15 +105,17 @@ results = preblock(randperm(height(preblock)), :);
 results.cueType = repmat({'AU'},pretNum,1);
 results.cSOA = repmat({cSOAs.AU},pretNum,1);
 % formal task
+triNum = triNum / 2; % split to 2 part 
 repTimes = triNum / height(block);  
 block = repmat(block, repTimes, 1);  
-for type = cueTypes
+for type = [cueTypes,cueTypes]
     newblock = block;
     newblock.cueType = repmat(type,triNum,1);
     newblock.cSOA = repmat({cSOAs.(type{1})},triNum,1);
     newblock.tSOA = repmat(transpose(tSOAs.(type{1})),triNum/length(tSOAs.(type{1})),1);
     results = [results; newblock(randperm(height(block)), :)];
 end
+triNum = triNum * 2;
 results.ITI = rand(height(results),1)*diff(ITIs) + ITIs(1);
 results.soaSeed = randi(2^32-1,height(results),1);
 results.noiseSeed = randi(2^32-1,height(results),1);
