@@ -357,7 +357,7 @@ end
 %%
 sca;
 PsychPortAudio('Close',pahandle);
-save(sprintf('./Data/A_Result_G%.0f_Sub%.0f_%s_%s',groupID, subjID, subjName, DTstr),'results')
+writetable(results,sprintf('./Data/A_Result_G%.0f_Sub%.0f_%s_%s',groupID, subjID, subjName, DTstr))
 if saveRaw
     save(sprintf('./Data/A_EXP_G%.0f_Sub%.0f_%s_%s',groupID, subjID, subjName, DTstr))
 end
