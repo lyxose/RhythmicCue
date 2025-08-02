@@ -1,7 +1,7 @@
 
 function stream = genStream(fixT, ITI, cSOA, cFreq, tSOA, tFreq, maxRT, stiD, sampRate, noiseAmp, cueAmp, tgAmp, ramp, noiseSeed)
 
-    if nargin < 13 || isempty(noiseSeed)
+    if nargin < 14 || isempty(noiseSeed)
         noiseSeed = randi([0, intmax('uint32')], 1, 'uint32'); 
     end
     originalRNG = rng;  % Preserve global random number generator state 

@@ -15,6 +15,12 @@ DTstr = datestr(datetime, 'yyyymmddTHHMM');
 addpath('function_library_cus');
 instFolder = './Instructions';
 
+WaitSecs(0.2);
+[keyIsDown, ~, keyCode] = KbCheck;
+if sum(keyCode) ~= 0    % make sure only one key is pressed
+    error('Check keyboard hardware!!! A certain key is pressed! %s',KbName(keyCode))
+end
+
 % get SubjInfo
 [groupID, subjID, subjName, subjGender, subjAge, gstgAmp, seqID] = InformationBox('A');
 headDist = input('Distance between eyes and screen (cm):');
@@ -97,11 +103,11 @@ results.cSOA = repmat({cSOAs.AU},pretNum,1);
 repTimes = triNum / height(block);  
 block = repmat(block, repTimes, 1);  
 for type = cueTypes
-    newblock = block(randperm(height(block)), :);
+    newblock = block;
     newblock.cueType = repmat(type,triNum,1);
     newblock.cSOA = repmat({cSOAs.(type{1})},triNum,1);
     newblock.tSOA = repmat(transpose(tSOAs.(type{1})),triNum/length(tSOAs.(type{1})),1);
-    results = [results; newblock];
+    results = [results; newblock(randperm(height(block)), :)];
 end
 results.ITI = rand(height(results),1)*diff(ITIs) + ITIs(1);
 results.soaSeed = randi(2^32-1,height(results),1);
@@ -137,9 +143,9 @@ try
 pahandle = PsychPortAudio('Open', deviceID, 1, 3, sampRate, 2);
 
 % titrate white noise volume
-PsychPortAudio('Volume',pahandle,0.5);
+PsychPortAudio('Volume',pahandle,0.025);% 604-4 with TANGMAI earphone
 while 1
-    WN = noiseAmp.*(2.*rand(1,sampRate)-1);
+    WN = noiseAmp.*(2.*rand(1,2.*sampRate)-1);
     PsychPortAudio('FillBuffer', pahandle, [WN; WN]);
     PsychPortAudio('Start', pahandle, 1, 0, 1);
     inp = input('test the next volume(0~1), or input 0 to use current volume:  ');
@@ -152,15 +158,16 @@ while 1
 end
 
 % play example stimulus, then check
-streams{1} = genStream(0,cSOAs.AP2(ALTs(randi(size(ALTs,1)),:)),cFreq,rand(1),tFreq(1),maxRT,stiD,sampRate,noiseAmp,cueAmp,0.25,ramp);
-streams{2} = genStream(0,cSOAs.AP2(ALTs(randi(size(ALTs,1)),:)),cFreq,rand(1),tFreq(2),maxRT,stiD,sampRate,noiseAmp,cueAmp,0.25,ramp);
 while 1
     inp = input('Which target to play? (Enter 1/2 to choose, 0 to skip): ');
     if inp > 0
-        PsychPortAudio('FillBuffer', pahandle, [streams{inp}; streams{inp}]);
-        PsychPortAudio('Start', pahandle, 1, 0, 1);
-        PsychPortAudio('Stop', pahandle,1);
-        timeout = GetSecs+2;
+        Tseq= cSOAs.AP2(ALTs(randi(size(ALTs,1)),:));
+        ITI = min(ITIs)+rand*diff(ITIs);
+        stream = genStream(min(ITIs),ITI,Tseq,cFreq,tSOAs.AU(randi(length(tSOAs.AU))),tFreq(inp),maxRT,stiD,sampRate,noiseAmp,cueAmp,0.25,ramp);
+        PsychPortAudio('FillBuffer', pahandle, [stream; stream]);
+        t0 = PsychPortAudio('Start', pahandle, 1, 0, 1);
+        tgTime = ITI + sum(Tseq)+tSOA+maxRT;
+        timeout = t0 + tgTime;
         while GetSecs < timeout
             [keyIsDown, keyT, keyCode] = KbCheck;
             if sum(keyCode) == 1    % make sure only one key is pressed
@@ -177,6 +184,7 @@ while 1
         if GetSecs > timeout
             disp('Time OUT!')
         end
+        PsychPortAudio('Stop', pahandle,1);
     else
         break
     end
@@ -192,18 +200,12 @@ ut = UT(scWidth,winRect(3),headDist,false);
 dotpRad = ut.deg2pix(fixSize)/2; % radius of fixation dot in pixcel
 dotRect = [-dotpRad,-dotpRad,dotpRad,dotpRad]+[winRect(3),winRect(4),winRect(3),winRect(4)]./2;
 
-[keyIsDown, ~, keyCode] = KbCheck;
-if sum(keyCode) ~= 0    % make sure only one key is pressed
-    error('Check keyboard hardware!!! A certain key is pressed! %s',KbName(keyCode))
-end
-
 lastChange = 0; 
 for i = 1:pretNum
     if mod(i, 10) == 1 && i>1% each 10 trial rest 1s+
         showInstruc_audioRest(w,'Rest',instFolder,'space','backspace',1);
     end
     Screen('FillOval',w,0,dotRect);
-    Screen('Flip',w);
     cSOA = results.cSOA{i};
     nanIndices = isnan(cSOA);  % find nan
     if any(nanIndices)
@@ -217,9 +219,11 @@ for i = 1:pretNum
     tSOA = results.tSOA(i);
     noiseSeed = results.noiseSeed(i);
     ITI = results.ITI(i);
-    stream = genStream(ITI, cSOA, cFreq, tSOA, tFreq(results.tFreq(i)), maxRT, stiD, sampRate, noiseAmp, cueAmp, tgAmp, ramp, noiseSeed);
+    stream = genStream(min(ITIs), ITI, cSOA, cFreq, tSOA, tFreq(results.tFreq(i)), maxRT, stiD, sampRate, noiseAmp, cueAmp, tgAmp, ramp, noiseSeed);
     PsychPortAudio('FillBuffer', pahandle, [stream; stream]);
     t0 = PsychPortAudio('Start', pahandle, 1, 0, 1);  % no-repeat, start rightnow, get the actual timing
+    Screen('Flip',w);
+
     % tt = GetSecs;
     results.t0(i) = t0;
     tgTime = t0+ITI+sum(cSOA)+tSOA;
@@ -266,7 +270,7 @@ for i = 1:pretNum
         end
     end     
     results.tgAmp(i)=tgAmp;
-    fprintf('#%.0f  %.4fs, "%s", judge-%.0f, tgAmp-%.3f, temporalErr-%.4fs\n',results.ID(i), RT, KbName(keyCode), results.judge(i), tgAmp, estStopTime-timeout)
+    fprintf('PreAU  #%.0f  %.4fs, "%s", judge-%.0f, tgAmp-%.3f, temporalErr-%.4fs\n',results.ID(i), RT, KbName(keyCode), results.judge(i), tgAmp, estStopTime-timeout)
     % Check if reversed for enough times and keeped this amp once, then break 
     if length(lastChange) >= 2+revTimes && corrCount~=0 % 2+ because of the 0-head and the first step should not be considered
         break
@@ -301,7 +305,6 @@ for i = pretNum + (1:4*triNum)
         showInstruc_audioRest(w,'Rest',instFolder,'space','backspace',1);
     end
     Screen('FillOval',w,0,dotRect);
-    Screen('Flip',w);
     cSOA = results.cSOA{i};
     nanIndices = isnan(cSOA);  % find nan
     if any(nanIndices)
@@ -315,10 +318,12 @@ for i = pretNum + (1:4*triNum)
     tSOA = results.tSOA(i);
     noiseSeed = results.noiseSeed(i);
     ITI = results.ITI(i);
-    stream = genStream(ITI, cSOA, cFreq, tSOA, tFreq(results.tFreq(i)), maxRT, stiD, sampRate, noiseAmp, cueAmp, tgAmp, ramp, noiseSeed);
+    stream = genStream(min(ITIs), ITI, cSOA, cFreq, tSOA, tFreq(results.tFreq(i)), maxRT, stiD, sampRate, noiseAmp, cueAmp, tgAmp, ramp, noiseSeed);
     PsychPortAudio('FillBuffer', pahandle, [stream; stream]);
     % tt = GetSecs;
     t0 = PsychPortAudio('Start', pahandle, 1, 0, 1);  % no-repeat, start rightnow, get the actual timing
+    Screen('Flip',w);
+
     results.t0(i) = t0;
     tgTime = t0+ITI+sum(cSOA)+tSOA;
     Screen('Flip',w,t0+min(ITIs));   % central dot indicates that the trial is started, which disappeared after the min ITI
@@ -346,7 +351,7 @@ for i = pretNum + (1:4*triNum)
     [startTime, endPositionSecs, xruns, estStopTime] = PsychPortAudio('Stop', pahandle,1);
 
     results.tgAmp(i)=tgAmp;
-    fprintf('#%.0f  %.4fs, "%s", judge-%.0f, temporalErr-%.4fs\n',results.ID(i),RT,KbName(keyCode),results.judge(i),estStopTime-timeout)
+    fprintf('%s  #%.0f  %.4fs, "%s", judge-%.0f, temporalErr-%.4fs\n', results.cueType(i), results.ID(i),RT,KbName(keyCode),results.judge(i),estStopTime-timeout)
 end
 
 %%
