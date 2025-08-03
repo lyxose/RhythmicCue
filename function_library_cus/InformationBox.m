@@ -13,7 +13,7 @@
 %             [1 3 4 2],[2 3 4 1],[3 1 4 2],[4 3 1 2]
 %             [1 4 2 3],[2 4 1 3],[3 4 2 1],[4 1 2 3]
 %             [1 4 3 2],[2 4 3 1],[3 4 1 2],[4 1 3 2]};
-function [groupID, subjID, subjName, subjGender, subjAge, threshold, seqTypeID] = InformationBox(modal)
+function [groupID, subjID, subjName, subjGender, subjAge, threshold, seqTypeID, formator] = InformationBox(modal)
     if ~exist('./Data', 'dir')
         mkdir('./Data');
     end    
@@ -27,8 +27,8 @@ function [groupID, subjID, subjName, subjGender, subjAge, threshold, seqTypeID] 
                    'subjName',   'Enter Subject Name (QuanPin):',                                   'MingZipinying',   1,     1,     '%s'    
                    'subjGender', 'Enter Subject Gender  [Man: M; Woman: F]:'                        'M',               1,     1,     '%s'    
                    'subjAge',    'Enter Subject Age:',                                              22,                1,     1,     '%d'    
-                   'thresholdA', 'Enter tgAmp Threshold (unknown: 0):',                             0,                 1,     0,     '%d'    
-                   'thresholdV', 'Enter tgAmp Threshold (unknown: 0):',                             0,                 0,     1,     '%d'    
+                   'thresholdA', 'Enter tgAmp Threshold (unknown: 0):',                             0,                 1,     0,     '%f'    
+                   'thresholdV', 'Enter tgAmp Threshold (unknown: 0):',                             0,                 0,     1,     '%f'    
                    'seqTypeA',   'Enter Block Seq. Type (1~24):',                                   0,                 1,     0,     '%d'    
                    'seqTypeV',   'Enter Block Seq. Type (1~24):',                                   0,                 0,     1,     '%d'    
                    'dateTA',     'Enter Date in "yyyymmddTHHMM" form:'                              [],                1,     0,     '%s'    
@@ -100,7 +100,7 @@ function [groupID, subjID, subjName, subjGender, subjAge, threshold, seqTypeID] 
         threhKey = ['threshold',modal];
         priorThreIdx = groupSubset & SubjInfo.(threhKey)~=0;
         if any(priorThreIdx) && ~reRun
-            threshold = mean(SubjInfo(priorThreIdx, threhKey));
+            threshold = mean(SubjInfo{priorThreIdx, threhKey});
             exampleInfo{strcmp(header,threhKey)} = threshold;
         end
 
@@ -127,11 +127,11 @@ function [groupID, subjID, subjName, subjGender, subjAge, threshold, seqTypeID] 
     else
         exampleInfo{strcmp(header,'session2')} =modal;
     end
+    exampleInfo(modalMark) = transpose(answer);
     if ~exist(infoFilePath, 'file')
         SubjInfo = exampleInfo;
     else
         SubjInfo= table2cell(SubjInfo);
-        exampleInfo(modalMark) = transpose(answer);
         SubjInfo(rowIdx,:) = exampleInfo;
     end
     

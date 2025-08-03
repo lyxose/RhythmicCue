@@ -5,7 +5,7 @@ sca;
 KbName('UnifyKeyNames'); 
 % PsychDebugWindowConfiguration;
 % DisableKeysForKbCheck(KbName('f22'));
-
+% Screen('Preference', 'SkipSyncTests', 1);
 if ~exist('./Data', 'dir')
     mkdir('./Data');
 end
@@ -25,7 +25,7 @@ if sum(keyCode) ~= 0    % make sure only one key is pressed
 end
 
 % get SubjInfo
-[groupID, subjID, subjName, subjGender, subjAge, gstgAmp, seqID] = InformationBox('V');
+[groupID, subjID, subjName, subjGender, subjAge, gstgAmp, seqID, formator] = InformationBox('V');
 headDist = input('Distance between eyes and screen (cm):');
 
 % block sequence should be randomized across subjects
@@ -149,9 +149,9 @@ try
 %% staircase titrating task
 pahandle = PsychPortAudio('Open', deviceID, 1, 3, sampRate, 2);
 
-PsychPortAudio('Volume',pahandle,0.025);% 604-4 with TANGMAI earphone
+PsychPortAudio('Volume',pahandle,0.004);% 0.24 for 604-5 ; 0.025 for 604-4 with TANGMAI earphone
 
-scr = 1;%max(Screen('Screens'));
+scr = max(Screen('Screens')); % 1; for 604-4
 [wpnt,winRect] = Screen('OpenWindow',scr,127);
 scWidth = Screen('DisplaySize',scr)/10; % in cm
 ut = UT(scWidth,winRect(3),headDist,false);
@@ -282,6 +282,7 @@ for i = 1:pretNum
     Screen('Drawtexture', wpnt, tgTexture(results.tTilt(i)))
     tgTime = Screen('Flip', wpnt, fbTs(j) + tSOA);
     Screen('Flip', wpnt, tgTime+stiD);
+    results.t0(i) = t0;
     results.tgTime(i) = tgTime;
     timeout = tgTime + maxRT;  % 
 
@@ -345,9 +346,9 @@ if i == pretNum
     [wpnt,winRect] = Screen('OpenWindow',scr,127);
 end
 % update table
-SubjInfo = readtable('./Data/SubjInfo.csv');
+SubjInfo = readtable('./Data/SubjInfo.csv','Format',formator);
 rowIdx = find(SubjInfo.subjID == subjID & SubjInfo.groupID == groupID,1);
-SubjInfo(rowIdx,'thresholdA') = {tgAmp};
+SubjInfo(rowIdx,'thresholdV') = {tgAmp};
 writetable(SubjInfo,'./Data/SubjInfo.csv');
 
 % input('Continue to Formal Task?')
@@ -400,6 +401,7 @@ for i = pretNum + (1:4*triNum)
     Screen('Drawtexture', wpnt, tgTexture(results.tTilt(i)))
     tgTime = Screen('Flip', wpnt, fbTs(j) + tSOA);
     Screen('Flip', wpnt, tgTime+stiD);
+    results.t0(i) = t0;
     results.tgTime(i) = tgTime;
     timeout = tgTime + maxRT;  % 
 
@@ -427,7 +429,7 @@ for i = pretNum + (1:4*triNum)
 %     disp(fbTs-tempSeq);
     
     results.tgAmp(i)=tgAmp;
-    fprintf('%s  #%.0f  %.4fs, "%s", judge-%.0f, tgAmp-%.4f, sumTemporalErr-%.4fs\n', results.cueType(i) ,results.ID(i), RT, KbName(keyCode), results.judge(i), tgAmp, sum(abs(tempSeq-fbTs)))
+    fprintf('%s  #%.0f  %.4fs, "%s", judge-%.0f, tgAmp-%.4f, sumTemporalErr-%.4fs\n', results.cueType{i} ,results.ID(i), RT, KbName(keyCode), results.judge(i), tgAmp, sum(abs(tempSeq-fbTs)))
 end
 
 %%

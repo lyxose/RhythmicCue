@@ -24,7 +24,7 @@ if sum(keyCode) ~= 0    % make sure only one key is pressed
 end
 
 % get SubjInfo
-[groupID, subjID, subjName, subjGender, subjAge, gstgAmp, seqID] = InformationBox('A');
+[groupID, subjID, subjName, subjGender, subjAge, gstgAmp, seqID, formator] = InformationBox('A');
 headDist = input('Distance between eyes and screen (cm):');
 
 % block sequence should be randomized across subjects
@@ -147,7 +147,7 @@ try
 pahandle = PsychPortAudio('Open', deviceID, 1, 3, sampRate, 2);
 
 % titrate white noise volume
-PsychPortAudio('Volume',pahandle,0.025);% 604-4 with TANGMAI earphone
+PsychPortAudio('Volume',pahandle,0.004);% 0.24 for 604-5 ; 0.025 for 604-4 with TANGMAI earphone
 while 1
     WN = noiseAmp.*(2.*rand(1,2.*sampRate)-1);
     PsychPortAudio('FillBuffer', pahandle, [WN; WN]);
@@ -167,11 +167,13 @@ while 1
     if inp > 0
         Tseq= cSOAs.AP2(ALTs(randi(size(ALTs,1)),:));
         ITI = min(ITIs)+rand*diff(ITIs);
-        stream = genStream(min(ITIs),ITI,Tseq,cFreq,tSOAs.AU(randi(length(tSOAs.AU))),tFreq(inp),maxRT,stiD,sampRate,noiseAmp,cueAmp,0.25,ramp);
+        tSOA = tSOAs.AU(randi(length(tSOAs.AU)));
+        stream = genStream(min(ITIs),ITI,Tseq,cFreq,tSOA,tFreq(inp),maxRT,stiD,sampRate,noiseAmp,cueAmp,0.25,ramp);
         PsychPortAudio('FillBuffer', pahandle, [stream; stream]);
         t0 = PsychPortAudio('Start', pahandle, 1, 0, 1);
-        tgTime = ITI + sum(Tseq)+tSOA+maxRT;
-        timeout = t0 + tgTime;
+        tgTime = t0 + ITI + sum(Tseq)+tSOA;
+        timeout = tgTime+maxRT;
+        WaitSecs('UntilTime',tgTime);
         while GetSecs < timeout
             [keyIsDown, keyT, keyCode] = KbCheck;
             if sum(keyCode) == 1    % make sure only one key is pressed
@@ -197,7 +199,7 @@ end
 % 'one up two down' staircase to get mixture ratio
 tgAmp = gstgAmp;
 corrCount = 0;  % counting correct times for staircase procedure
-scr = max(Screen('Screens'));
+scr = max(Screen('Screens')); % 1; for 604-4
 [w,winRect] = Screen('OpenWindow',scr,127);
 scWidth = Screen('DisplaySize',scr)/10; % in cm
 ut = UT(scWidth,winRect(3),headDist,false);
@@ -293,7 +295,7 @@ if i == pretNum
     [w,winRect] = Screen('OpenWindow',scr,127);
 end
 % update table
-SubjInfo = readtable('./Data/SubjInfo.csv');
+SubjInfo = readtable('./Data/SubjInfo.csv','Format',formator);
 rowIdx = find(SubjInfo.subjID == subjID & SubjInfo.groupID == groupID,1);
 SubjInfo(rowIdx,'thresholdA') = {tgAmp};
 writetable(SubjInfo,'./Data/SubjInfo.csv');
@@ -355,13 +357,13 @@ for i = pretNum + (1:4*triNum)
     [startTime, endPositionSecs, xruns, estStopTime] = PsychPortAudio('Stop', pahandle,1);
 
     results.tgAmp(i)=tgAmp;
-    fprintf('%s  #%.0f  %.4fs, "%s", judge-%.0f, temporalErr-%.4fs\n', results.cueType(i), results.ID(i),RT,KbName(keyCode),results.judge(i),estStopTime-timeout)
+    fprintf('%s  #%.0f  %.4fs, "%s", judge-%.0f, temporalErr-%.4fs\n', results.cueType{i}, results.ID(i),RT,KbName(keyCode),results.judge(i),estStopTime-timeout)
 end
 
 %%
 sca;
 PsychPortAudio('Close',pahandle);
-writetable(results,sprintf('./Data/A_Result_G%.0f_Sub%.0f_%s_%s',groupID, subjID, subjName, DTstr))
+writetable(results,sprintf('./Data/A_Result_G%.0f_Sub%.0f_%s_%s.csv',groupID, subjID, subjName, DTstr))
 if saveRaw
     save(sprintf('./Data/A_EXP_G%.0f_Sub%.0f_%s_%s',groupID, subjID, subjName, DTstr))
 end
