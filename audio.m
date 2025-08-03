@@ -168,7 +168,7 @@ while 1
         Tseq= cSOAs.AP2(ALTs(randi(size(ALTs,1)),:));
         ITI = min(ITIs)+rand*diff(ITIs);
         tSOA = tSOAs.AU(randi(length(tSOAs.AU)));
-        stream = genStream(min(ITIs),ITI,Tseq,cFreq,tSOA,tFreq(inp),maxRT,stiD,sampRate,noiseAmp,cueAmp,0.25,ramp);
+        stream = genStream(min(ITIs),ITI,Tseq,cFreq,tSOA,tFreq(inp),maxRT,stiD,sampRate,noiseAmp,cueAmp,0.4,ramp);
         PsychPortAudio('FillBuffer', pahandle, [stream; stream]);
         t0 = PsychPortAudio('Start', pahandle, 1, 0, 1);
         tgTime = t0 + ITI + sum(Tseq)+tSOA;

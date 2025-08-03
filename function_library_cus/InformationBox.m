@@ -139,6 +139,7 @@ function [groupID, subjID, subjName, subjGender, subjAge, threshold, seqTypeID, 
     subjName = exampleInfo{strcmp(header,'subjName')};
     subjGender = exampleInfo{strcmp(header,'subjGender')};
     subjAge = exampleInfo{strcmp(header,'subjAge')};
+    threshold = str2double(exampleInfo{strcmp(header,threhKey)});
 
     % Rewrite the table file
     writecell([header;SubjInfo],infoFilePath);
