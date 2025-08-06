@@ -18,6 +18,7 @@ function [groupID, subjID, subjName, subjGender, subjAge, threshold, seqTypeID, 
         mkdir('./Data');
     end    
     infoFilePath = './Data/SubjInfo.csv';
+    threhKey = ['threshold',modal];
     dateTime = datestr(datetime,'yyyymmddTHHMM');
     % describe all var. in SubjInfo table                    
     Tag =         {'Header',     'InputPrompt',                                                     'DefaultAnswer',  'A',   'V',    'Type'};
@@ -50,7 +51,7 @@ function [groupID, subjID, subjName, subjGender, subjAge, threshold, seqTypeID, 
     dateT = sprintf('dateT%s',modal);                   % to get the correct colomn for each modal
 
     groupID = input('Enter Group ID (int):');
-    
+
     newSubj = true;
     reRun = false;
 
@@ -97,7 +98,6 @@ function [groupID, subjID, subjName, subjGender, subjAge, threshold, seqTypeID, 
             seqTypeID = balanCond(SubjInfo{groupSubset,seqType},SubjInfo{~groupSubset,seqType},1:24);
         end
         % get average threshold as the guessed staricase start point
-        threhKey = ['threshold',modal];
         priorThreIdx = groupSubset & SubjInfo.(threhKey)~=0;
         if any(priorThreIdx) && ~reRun
             threshold = mean(SubjInfo{priorThreIdx, threhKey});
