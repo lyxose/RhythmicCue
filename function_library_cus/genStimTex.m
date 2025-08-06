@@ -13,6 +13,6 @@ function stiTexture = genStimTex(wptr, winRect, ut, tgContrast, tgCenter, GaborS
     Texture = grating(winRect(3:4), tgCenter, 1/lambda, ...
                          GaborOrient, tgContrast);
     stimulus = winOverlap(zeros([scHeight,scWidth])+0.5, Texture, ...
-                          ut.deg2pix(GaborWidth), bgCenter, 'hard');
+                          ut.deg2pix(GaborWidth), bgCenter, 'cos');
     stiTexture = Screen('MakeTexture', wptr, cat(3,stimulus,stimulus,stimulus)*255);
 end     

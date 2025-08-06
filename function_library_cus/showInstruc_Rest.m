@@ -1,4 +1,4 @@
-function [oper, texture] = showInstruc_audioRest(wptr, instName, instFolder, nextKey, backKey, minSlideT)
+function oper = showInstruc_Rest(wptr, instName, instFolder, nextKey, backKey, minSlideT)
     % Show instruction images in sequence based on filename order.
     % 
     % This function reads instruction image files with names containing 
@@ -38,15 +38,15 @@ function [oper, texture] = showInstruc_audioRest(wptr, instName, instFolder, nex
     % Get the first matched image file path and draw it
     imgPointer = 1;
     imgPath = fullfile(instFolder, matchedFiles{imgPointer});
-    texture = drawCentImg(wptr, imgPath, 'fit');
+    drawCentImg(wptr, imgPath, 'fit',true);
     t0 = Screen('Flip', wptr);
     while nargin>5 && GetSecs-t0<minSlideT
         WaitSecs(0.1);  % wait until reach the minimal time of each slide
     end
     imgPointer = 2;
     imgPath = fullfile(instFolder, matchedFiles{imgPointer});
-    texture = drawCentImg(wptr, imgPath, 'fit');
-    t0 = Screen('Flip', wptr);
+    drawCentImg(wptr, imgPath, 'fit', true);
+    Screen('Flip', wptr);
     
     % Wait for a key press
     while 1
@@ -61,8 +61,8 @@ function [oper, texture] = showInstruc_audioRest(wptr, instName, instFolder, nex
             imgPointer = imgPointer+oper;
             if imgPointer>0 && imgPointer<=length(matchedFiles)
                 imgPath = fullfile(instFolder, matchedFiles{imgPointer});
-                texture = drawCentImg(wptr, imgPath, 'fit');
-                t0 = Screen('Flip', wptr);
+                drawCentImg(wptr, imgPath, 'fit', true);
+                Screen('Flip', wptr);
             else
                 break
             end

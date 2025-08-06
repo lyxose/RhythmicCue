@@ -26,6 +26,8 @@ function stream = genStream(fixT, ITI, cSOA, cFreq, tSOA, tFreq, maxRT, stiD, sa
     for c = round(sampRate.*([0,cumsum(cSOA)]+ITI))
         stream(c+1:c+sti_len) = stream(c+1:c+sti_len)+cueSti;
     end
-    t = c+round(sampRate*tSOA);
-    stream(t+1:t+sti_len) = stream(t+1:t+sti_len)+tgSti;
+    if tFreq~=0 && tgAmp ~= 0 % not catch trial
+        t = c+round(sampRate*tSOA);
+        stream(t+1:t+sti_len) = stream(t+1:t+sti_len)+tgSti;
+    end
 end

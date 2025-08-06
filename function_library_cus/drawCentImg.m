@@ -1,4 +1,4 @@
-function [texture, CentrRect] = drawCentImg(wptr, imgpath, zoom)
+function [texture, CentrRect] = drawCentImg(wptr, imgpath, zoom, close)
     % Draw the given image at the center of the screen by the given zoom way.
     % 
     % Parameters:
@@ -10,6 +10,11 @@ function [texture, CentrRect] = drawCentImg(wptr, imgpath, zoom)
     %        - 'fit':     scale the image to fit within the screen while maintaining aspect ratio
     %        - 'stretch': scale the image to fill the entire screen, ignoring aspect ratio
     %        - 'tile':    display the image at its original size, tiling it if necessary
+    % close:   whether to close the texture after drawing (default false)
+
+    if nargin < 4
+        close = false;
+    end
 
     % Load the image
     [img,cmap] = imread(imgpath); % Replace with your image file name
@@ -103,6 +108,9 @@ function [texture, CentrRect] = drawCentImg(wptr, imgpath, zoom)
                 Screen('DrawTexture', wptr, texture, [], [x, y, x + newW, y + newH]);
             end
         end
+    end
+    if close
+        Screen('Close', texture);  % Close the texture if specified
     end
 end
     
