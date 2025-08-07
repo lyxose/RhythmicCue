@@ -46,14 +46,14 @@ SOA      = 0.5;                    % standard SOA in Periodic Predictable condit
 rdSOA    = [0.4 0.9];              % the range of the random SOA in AP3 and AU condition
 tSOAp    = [1   1   1];    % the probability distribution of each tSOA condition (still unused)
 % 1. periodic predictable
-cSOAs.PP  = [1 1 1 1 1 1 1].*SOA;
-tSOAs.PP  = [1/2 2/2 3/2].*SOA;
+cSOAs.PP  = [1    1    1    1    1    1    1   ].*SOA;
+tSOAs.PP = [1/2 2/2 3/2].*SOA;
 % 2. aperiodic predictable (control the last beat)
-cSOAs.AP1 = [1.56 1.48 1.40 1.32 1.24 1.16 1.08].*SOA;
+cSOAs.AP1 = [2.05 1.90 1.75 1.60 1.45 1.30 1.15].*SOA;
 tSOAs.AP1 = [1/2 2/2 3/2].*SOA;
 % 3. aperiodic predictable (control average time)
-cSOAs.AP2 = [1.24 1.16 1.08 1.00 0.92 0.84 0.76].*SOA;
-tSOAs.AP2 = 0.68.*[1/2 2/2 3/2].*SOA;
+cSOAs.AP2 = [1.45 1.30 1.15 1.00 0.85 0.70 0.55].*SOA;
+tSOAs.AP2 = 0.4.*[1/2 2/2 3/2].*SOA;
 % 4. aperiodic unpredictable (random)
 cSOAs.AU  = [nan nan nan nan nan nan nan];
 tSOAs.AU  = [1/2 2/2 3/2].*SOA;
@@ -99,7 +99,7 @@ if gstgAmp == 0
 end
 ampStep  = gstgAmp/10;             % staircase step of target amplitude
 dynaStep = 0.8;                    % dynamicly decrease after each reverse (set to 1 to keep stepsize consistent)
-textSize = 50;
+textSize = 30;
 
 % check parameters setting
 if triNum < 1 || mod(triNum*(1-catTriR), sum(tSOAp))*length(tFreq)~=0 
@@ -502,7 +502,10 @@ sca;
 PsychPortAudio('Close',pahandle);
 writetable(results,sprintf('./Data/A_Result_G%.0f_Sub%.0f_%s_%s.csv',groupID, subjID, subjName, DTstr))
 if saveRaw
+    % save all variables
     save(sprintf('./Data/A_EXP_G%.0f_Sub%.0f_%s_%s',groupID, subjID, subjName, DTstr))
+    % save matlab cmd output
+    diary(sprintf('./Data/A_EXP_G%.0f_Sub%.0f_%s_%s.txt',groupID, subjID, subjName, DTstr));
 end
 catch me
     sca;

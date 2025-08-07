@@ -1,9 +1,12 @@
-/Data/
-/Data_old/
+# ignore any folders starting with 'Data'
+/Data*/
+# exclude information files in Data
 !/Data/SubjInfo.csv
+# ignore RecycleBin and Analysis subfolders
 /RecycleBin/
 /Analysis/Data/
 /Analysis/results/
 /Analysis/Processed_data/
+# ignore all temporary files
 *.asv
 ~*
