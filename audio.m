@@ -261,13 +261,14 @@ dotRect = [-dotpRad,-dotpRad,dotpRad,dotpRad]+[winRect(3),winRect(4),winRect(3),
 
 lastChange = 0; 
 changeIdx = 0;
+checkScreen=1; % whether to show the performance screen 
 for i = 1:pretNum
     if mod(i, checkPer) == 1 && i>1% each 10 trial rest 1s+
         if checkScreen == 1
             oper = showTrialStats(w, i, checkPer, results, 0, 'Return', 'BackSpace', instFolder, 'Check');
             checkScreen = checkScreen*oper; % if oper == -1, then change to rest screen
         else
-            oper = showInstruc_Rest(w, 'Rest', instFolder, 'Return', 'BackSpace', 1);
+            oper = showInstruc_Rest(w, 'Rest', instFolder, 'space', 'BackSpace', 1);
             checkScreen = checkScreen*oper; % if oper == -1, then change to check screen
         end
     end
@@ -404,6 +405,7 @@ if i == pretNum || checkThreshStage || havetocheck
 end
 
 %% main experiment
+checkScreen=1; % whether to show the performance screen 
 for i = pretNum + (1:4*triNum)
     if mod(i-pretNum, triNum) == 1 && i>1% each block rest 10s+
         oper = showInstruc_Rest(w,'Rest',instFolder,'space','backspace',10);
@@ -413,7 +415,7 @@ for i = pretNum + (1:4*triNum)
             oper = showTrialStats(w, i, checkPer, results, pretNum, 'Return', 'BackSpace', instFolder, 'Check');
             checkScreen = checkScreen*oper; % if oper == -1, then change to rest screen
         else
-            oper = showInstruc_Rest(w, 'Rest', instFolder, 'Return', 'BackSpace', 1);
+            oper = showInstruc_Rest(w, 'Rest', instFolder, 'space', 'BackSpace', 1);
             checkScreen = checkScreen*oper; % if oper == -1, then change to check screen
         end
     end

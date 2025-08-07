@@ -295,7 +295,7 @@ for i = 1:pretNum
             oper = showTrialStats(w, i, checkPer, results, 0, 'Return', 'BackSpace', instFolder, 'Check');
             checkScreen = checkScreen*oper; % if oper == -1, then change to rest screen
         else
-            oper = showInstruc_Rest(w, 'Rest', instFolder, 'Return', 'BackSpace', 1);
+            oper = showInstruc_Rest(w, 'Rest', instFolder, 'space', 'BackSpace', 1);
             checkScreen = checkScreen*oper; % if oper == -1, then change to check screen
         end
     end
@@ -474,7 +474,7 @@ for i = pretNum + (1:4*triNum)
             oper = showTrialStats(w, i, checkPer, results, pretNum, 'Return', 'BackSpace', instFolder, 'Check');
             checkScreen = checkScreen*oper; % if oper == -1, then change to rest screen
         else
-            oper = showInstruc_Rest(w, 'Rest', instFolder, 'Return', 'BackSpace', 1);
+            oper = showInstruc_Rest(w, 'Rest', instFolder, 'space', 'BackSpace', 1);
             checkScreen = checkScreen*oper; % if oper == -1, then change to check screen
         end
     end
