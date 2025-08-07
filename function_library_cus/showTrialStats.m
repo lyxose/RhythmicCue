@@ -63,7 +63,7 @@ function oper = showTrialStats(wptr, i, showLastN, results, skipFirstNum, passKe
     end
 
     % 4. 绘制文本
-    infoStr = sprintf('#%.0f   ACC of Last %.0f: %.2f\n    total ACC: %.2f\n    Act: %s', results.ID(i), showLastN, accLastN, accAll, keySeq);
+    infoStr = sprintf('#%.0f   ACC of Last %.0f: %.2f    total ACC: %.2f     Amp: %.0f    Act: %s', results.ID(i-1), showLastN, accLastN, accAll, results.tgAmp(i-1), keySeq);
     [tex,~] = drawCentImg(wptr, imgPath, 'fit');
     Screen('DrawText', wptr, infoStr, 30, 30, [0 0 0]);
 %     Screen('DrawTexture',wptr, tex,[],centRect);
