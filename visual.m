@@ -334,7 +334,7 @@ for i = 1:pretNum
     Screen('Flip',w);
     results.t0(i) = t0;    
     Screen('Flip',w,t0+min(ITIs));   % central dot indicates that the trial is started, which disappeared after the min ITI
-    [startTime, endPositionSecs, xruns, estStopTime] = PsychPortAudio('Stop', pahandle,1);
+    [startTime, endPositionSecs, xruns, ~] = PsychPortAudio('Stop', pahandle,1);
 
     % display the sequence of stimulus
     tempSeq = GetSecs + ITI + [0,cumsum(cSOA)];
@@ -390,7 +390,7 @@ for i = 1:pretNum
             results.judge(i) = 1; % no response is correct for catch trial
         end
     end
-    fprintf('Pre-%s  #%.0f  %.4fs, "%s", judge-%.0f, tgAmp-%.3f, temporalErr-%.4fs\n',results.cueType{i}, results.ID(i), RT, KbName(find(keyCode,1)), results.judge(i), tgAmp, estStopTime-timeout)
+    fprintf('Pre-%s  #%.0f  %.4fs, "%s", judge-%.0f, tgAmp-%.3f, temporalErr-%.5fs\n',results.cueType{i}, results.ID(i), RT, KbName(find(keyCode,1)), results.judge(i), tgAmp,  sum(abs(tempSeq-fbTs)))
     results.tgAmp(i)=tgAmp;
     % staircase: one-up two-down
     if results.tTilt(i)==0 % catch trial, do not change tgAmp
@@ -505,7 +505,7 @@ for i = pretNum + (1:4*triNum)
     Screen('Flip',w);
     results.t0(i) = t0;
     Screen('Flip',w,t0+min(ITIs));   % central dot indicates that the trial is started, which disappeared after the min ITI
-    [startTime, endPositionSecs, xruns, estStopTime] = PsychPortAudio('Stop', pahandle,1);
+    [startTime, endPositionSecs, xruns, ~] = PsychPortAudio('Stop', pahandle,1);
     
     % display the sequence of stimulus
     tempSeq = GetSecs + ITI + [0,cumsum(cSOA)];
@@ -562,7 +562,7 @@ for i = pretNum + (1:4*triNum)
     end
 
     results.tgAmp(i)=tgAmp;
-    fprintf('%s  #%.0f  %.4fs, "%s", judge-%.0f, temporalErr-%.4fs\n', results.cueType{i}, results.ID(i),RT,KbName(find(keyCode,1)),results.judge(i),estStopTime-timeout)
+    fprintf('%s  #%.0f  %.4fs, "%s", judge-%.0f, temporalErr-%.5fs\n', results.cueType{i}, results.ID(i),RT,KbName(find(keyCode,1)),results.judge(i), sum(abs(tempSeq-fbTs)))
 end
 
 %%
