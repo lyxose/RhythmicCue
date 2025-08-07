@@ -203,7 +203,7 @@ pahandle = PsychPortAudio('Open', deviceID, 1, 3, sampRate, 2);
 PsychPortAudio('Volume',pahandle,0.004);% 0.24 for 604-5 ; 0.025 for 604-4 with TANGMAI earphone
 
 scr = max(Screen('Screens')); % 1; for 604-4
-[w,winRect] = Screen('OpenWindow',scr,127);
+[w,winRect] = Screen('OpenWindow',scr,127.5);
 scWidth = Screen('DisplaySize',scr)/10; % in cm
 ut = UT(scWidth,winRect(3),headDist,false);
 dotpRad = ut.deg2pix(GaborWidth)/2; % radius of fixation dot in pixcel
@@ -444,7 +444,7 @@ if i == pretNum || checkThreshStage || havetocheck
     sca;
     while ~strcmp(input("Ask the subject's confidence and check the tgAmp curve. \nPress Ctrl+C to abort or enter 'y' to continue."),'y')
     end
-    [w,winRect] = Screen('OpenWindow',scr,127);
+    [w,winRect] = Screen('OpenWindow',scr,127.5);
     Screen('TextSize',w,textSize);
 end
 
