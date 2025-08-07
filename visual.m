@@ -289,6 +289,8 @@ corrCount = 0;  % counting correct times for staircase procedure
 lastChange = 0; 
 changeIdx = 0;
 checkScreen = 1; % whether to show the performance screen 
+HideCursor(scr);
+
 for i = 1:pretNum
     if mod(i, checkPer) == 1 && i>1% each 10 trial rest 1s+
         if checkScreen == 1
@@ -450,10 +452,20 @@ writetable(SubjInfo,'./Data/SubjInfo.csv');
 % IF reach maxium pretrial number
 if i == pretNum || checkThreshStage || havetocheck
     sca;
-    while ~strcmp(input("Ask the subject's confidence and check the tgAmp curve. \nPress Ctrl+C to abort or enter 'y' to continue."),'y')
+    ShowCursor(scr);
+    y ='y';
+    n ='n';
+    while true
+        inp = input("Ask the subject's confidence and check the tgAmp curve. \nEnter 'n' to abort or enter 'y' to continue.");
+        if strcmp(inp,'y')
+            break
+        elseif strcmp(inp,'n')
+            error('Experiment aborted by user!')
+        end
     end
     [w,winRect] = Screen('OpenWindow',scr,127.5);
     Screen('TextSize',w,textSize);
+    HideCursor(scr);
 end
 
 % generate target frames for all formal trials
@@ -574,6 +586,7 @@ if saveRaw
 end
 catch me
     sca;
+    ShowCursor(scr);
     disp(me);
     disp(me.stack);
     save(sprintf('./Data/Interrupted/V_EXPINT_G%.0f_Sub%.0f_%s_%s',groupID, subjID, subjName, DTstr))
