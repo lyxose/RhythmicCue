@@ -22,7 +22,7 @@ YLutilpy.default_img_set()
 # # 剔除ID列小于等于0的行
 # df = df[df['ID'] > 0]
 # 支持多个subID和两种类型（V和A）的文件读取与合并
-subIDs = [5]  # 这里填你要分析的被试编号
+subIDs = [1]  # 这里填你要分析的被试编号
 groupID = 1
 
 all_dfs = []
@@ -269,12 +269,12 @@ plt.show()
 import matplotlib.pyplot as plt
 YLutilpy.default_img_set()
 
-subIDs = [2]  # 这里填你要分析的被试编号
+subIDs = [1]  # 这里填你要分析的被试编号
 groupID = 1
 
 all_dfs = []
 for subID in subIDs:
-    for prefix_type in ['A']:
+    for prefix_type in ['V']:
         prefix = f"../Data/{prefix_type}_Result_G{groupID}_Sub{subID}_"
         files = glob.glob(prefix + "*.csv")
         if not files:
