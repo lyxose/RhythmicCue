@@ -413,6 +413,10 @@ for i = 1:pretNum
         break
     end
 end
+% IF reach maxium pretrial number
+if i == pretNum
+    warning('Not enough reverse times(%d)!!', revTimes)
+end
 % Check if the max and min tgAmp of the last 4 reversals are within ±3 step sizes of the final threshold tgAmp
 % Take the trial indices of the last 4 reversals
 last4Idx = changeIdx(end-3:end);
@@ -438,13 +442,14 @@ writetable(SubjInfo,'./Data/SubjInfo.csv');
 % IF reach maxium pretrial number
 if i == pretNum || checkThreshStage || havetocheck
     sca;
-    warning('Not enough reverse times(%d)!!', revTimes)
     while ~strcmp(input("Ask the subject's confidence and check the tgAmp curve. \nPress Ctrl+C to abort or enter 'y' to continue."),'y')
     end
     [w,winRect] = Screen('OpenWindow',scr,127);
     Screen('TextSize',w,textSize);
 end
+
 % generate target frames for all formal trials
+cueTexture = genStimTex(w, winRect, ut, cueAmp, tgCenter, GaborSF, GaborWidth, 90);
 tgTexture = zeros(1,length(tTilt));
 for j = 1:length(tTilt)
     tgTexture(j) = genStimTex(w, winRect, ut, tgAmp, tgCenter, GaborSF, GaborWidth, tTilt(j));

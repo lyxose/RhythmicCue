@@ -363,6 +363,10 @@ for i = 1:pretNum
         break
     end
 end
+% IF reach maxium pretrial number
+if i == pretNum
+    warning('Not enough reverse times(%d)!!', revTimes)
+end
 % Check if the max and min tgAmp of the last 4 reversals are within ±3 step sizes of the final threshold tgAmp
 % Take the trial indices of the last 4 reversals
 last4Idx = changeIdx(end-3:end);
@@ -374,7 +378,7 @@ if maxAmp <= tgAmp + ampRange && minAmp >= tgAmp - ampRange
     havetocheck = false;
 else
     havetocheck = true;
-    disp('The max and min tgAmp of the last 4 reversals exceed ±4 step sizes of the final threshold!');
+    warning('The max and min tgAmp of the last 4 reversals exceed ±4 step sizes of the final threshold!');
 end
 % visualization pretrials 
 figure;
@@ -385,15 +389,13 @@ rowIdx = find(SubjInfo.subjID == subjID & SubjInfo.groupID == groupID,1);
 SubjInfo(rowIdx,'thresholdA') = {tgAmp};
 writetable(SubjInfo,'./Data/SubjInfo.csv');
 
-% IF reach maxium pretrial number
 if i == pretNum || checkThreshStage || havetocheck
     sca;
-    warning('Not enough reverse times(%d)!!', revTimes)
-    input("Ask the subject's confidence and check the tgAmp curve. \nPress Ctrl+C to abort or Enter to continue.")
+    while ~strcmp(input("Ask the subject's confidence and check the tgAmp curve. \nPress Ctrl+C to abort or enter 'y' to continue."),'y')
+    end
     [w,winRect] = Screen('OpenWindow',scr,127);
     Screen('TextSize',w,textSize);
 end
-
 
 %% main experiment
 for i = pretNum + (1:4*triNum)
