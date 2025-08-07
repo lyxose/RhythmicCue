@@ -374,6 +374,7 @@ for i = 1:pretNum
         checkend;
         WaitSecs(0.005);
     end
+    WaitSecs('UntilTime', timeout);
     if ~(any(keyCode(keyCodes)) && sum(keyCode) == 1) % timeout without correct response
         results.Key{i} = '_NaN_';
         if results.tTilt(i)~=0 % if not catch trial, judge timeout as wrong
@@ -538,6 +539,7 @@ for i = pretNum + (1:4*triNum)
         checkend;
         WaitSecs(0.005);
     end
+    WaitSecs('UntilTime', timeout);
     if ~(any(keyCode(keyCodes)) && sum(keyCode) == 1) % timeout without correct response
         results.Key{i} = '_NaN_';
         if results.tTilt(i)~=0 % if not catch trial, judge timeout as wrong
