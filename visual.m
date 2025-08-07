@@ -288,9 +288,16 @@ corrCount = 0;  % counting correct times for staircase procedure
 
 lastChange = 0; 
 changeIdx = 0;
+checkScreen = 1; % whether to show the performance screen 
 for i = 1:pretNum
     if mod(i, checkPer) == 1 && i>1% each 10 trial rest 1s+
-        oper = showTrialStats(w, i, checkPer, results, 0, 'Return', 'BackSpace', instFolder, 'Check');
+        if checkScreen == 1
+            oper = showTrialStats(w, i, checkPer, results, 0, 'Return', 'BackSpace', instFolder, 'Check');
+            checkScreen = checkScreen*oper; % if oper == -1, then change to rest screen
+        else
+            oper = showInstruc_Rest(w, 'Rest', instFolder, 'Return', 'BackSpace', 1);
+            checkScreen = checkScreen*oper; % if oper == -1, then change to check screen
+        end
     end
     % get trial parameters    
     cSOA = results.cSOA{i};
@@ -457,14 +464,19 @@ for j = 1:length(tTilt)
 end
 
 %% main experiment
+checkScreen = 1; % whether to show the performance screen
 for i = pretNum + (1:4*triNum)
-    if mod(i-pretNum, triNum) == 1 % each block rest 10s+
-        showInstruc_Rest(w,'Rest',instFolder,'space','backspace',10);
-    elseif mod(i-pretNum, checkPer) == 1 % each 15 trial rest 2s+
-        % check the performance of last 15 trials
-        skipFirstNum = pretNum; % skip pretrials
-        oper = showTrialStats(w, i, checkPer, results, skipFirstNum, 'Return', 'BackSpace', instFolder, 'Check');
-        % showInstruc_Rest(w,'Rest',instFolder,'space','backspace',2);
+    if mod(i-pretNum, triNum) == 1 && i>1% each block rest 10s+
+        oper = showInstruc_Rest(w,'Rest',instFolder,'space','backspace',10);
+        checkScreen = checkScreen*oper; % if oper == -1, then change check/rest screen setting
+    elseif mod(i-pretNum, checkPer) == 1 && i>1% each 15 trial rest 2s+
+        if checkScreen == 1
+            oper = showTrialStats(w, i, checkPer, results, pretNum, 'Return', 'BackSpace', instFolder, 'Check');
+            checkScreen = checkScreen*oper; % if oper == -1, then change to rest screen
+        else
+            oper = showInstruc_Rest(w, 'Rest', instFolder, 'Return', 'BackSpace', 1);
+            checkScreen = checkScreen*oper; % if oper == -1, then change to check screen
+        end
     end
     Screen('FillOval',w,0,dotRect);
     cSOA = results.cSOA{i};
