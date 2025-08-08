@@ -5,7 +5,7 @@ sca;
 KbName('UnifyKeyNames'); 
 % PsychDebugWindowConfiguration;
 % DisableKeysForKbCheck(KbName('f22'));
-% Screen('Preference', 'SkipSyncTests', 1);
+Screen('Preference', 'SkipSyncTests', 1);
 checkThreshStage = true; % whether to quit the PTB screen to check the threshold stage performance before the formal task
 
 if ~exist('./Data', 'dir')
@@ -215,7 +215,7 @@ Screen('TextSize',w,textSize);
 cueTexture = genStimTex(w, winRect, ut, cueAmp, tgCenter, GaborSF, GaborWidth, 90);
 tgTexture = zeros(1,length(tTilt));
 for i = 1:length(tTilt)
-    tgTexture(i) = genStimTex(w, winRect, ut, cueAmp, tgCenter, GaborSF, GaborWidth, tTilt(i));
+    tgTexture(i) = genStimTex(w, winRect, ut, mean([cueAmp,tgAmp]), tgCenter, GaborSF, GaborWidth, tTilt(i));
 end
 
 % play example stimulus, then check
@@ -288,9 +288,12 @@ corrCount = 0;  % counting correct times for staircase procedure
 
 lastChange = 0; 
 changeIdx = 0;
-checkScreen = 1; % whether to show the performance screen 
 HideCursor(scr);
-
+if scr==0
+    checkScreen = 1; % whether to show the performance screen 
+else
+    checkScreen = -1;
+end
 for i = 1:pretNum
     if mod(i, checkPer) == 1 && i>1% each 10 trial rest 1s+
         if checkScreen == 1
@@ -476,12 +479,16 @@ for j = 1:length(tTilt)
 end
 
 %% main experiment
-checkScreen = 1; % whether to show the performance screen
+if scr==0
+    checkScreen = 1; % whether to show the performance screen 
+else
+    checkScreen = -1;
+end
 for i = pretNum + (1:4*triNum)
-    if mod(i-pretNum, triNum) == 1 && i>1% each block rest 10s+
+    if mod(i-pretNum, triNum) == 1 && (i-pretNum)>1% each block rest 10s+
         oper = showInstruc_Rest(w,'Rest',instFolder,'space','backspace',10);
         checkScreen = checkScreen*oper; % if oper == -1, then change check/rest screen setting
-    elseif mod(i-pretNum, checkPer) == 1 && i>1% each 15 trial rest 2s+
+    elseif mod(i-pretNum, checkPer) == 1 && (i-pretNum)>1% each 15 trial rest 2s+
         if checkScreen == 1
             oper = showTrialStats(w, i, checkPer, results, pretNum, 'Return', 'BackSpace', instFolder, 'Check');
             checkScreen = checkScreen*oper; % if oper == -1, then change to rest screen

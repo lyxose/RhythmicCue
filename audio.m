@@ -2,6 +2,7 @@ clear;
 clc;
 sca;
 KbName('UnifyKeyNames'); 
+Screen('Preference', 'SkipSyncTests', 1);
 % PsychDebugWindowConfiguration;
 % DisableKeysForKbCheck(KbName('f22'));
 checkThreshStage = true; % whether to quit the PTB screen to check the threshold stage performance before the formal task
@@ -199,7 +200,7 @@ try
 pahandle = PsychPortAudio('Open', deviceID, 1, 3, sampRate, 2);
 
 % titrate white noise volume
-PsychPortAudio('Volume',pahandle,0.004);% 0.24 for 604-5 ; 0.025 for 604-4 with TANGMAI earphone
+PsychPortAudio('Volume',pahandle,0.004);% 0.003 for 604-5 ; 0.004 for 604-4 with TANGMAI earphone
 while 1
     WN = noiseAmp.*(2.*rand(1,2.*sampRate)-1);
     PsychPortAudio('FillBuffer', pahandle, [WN; WN]);
@@ -220,7 +221,7 @@ while 1
         Tseq= cSOAs.AP2(ALTs(randi(size(ALTs,1)),:));
         ITI = min(ITIs)+rand*diff(ITIs);
         tSOA = tSOAs.AU(randi(length(tSOAs.AU)));
-        stream = genStream(min(ITIs),ITI,Tseq,cFreq,tSOA,tFreq(inp),maxRT,stiD,sampRate,noiseAmp,cueAmp,0.4,ramp);
+        stream = genStream(min(ITIs),ITI,Tseq,cFreq,tSOA,tFreq(inp),maxRT,stiD,sampRate,noiseAmp,cueAmp,mean([cueAmp,gstgAmp]),ramp);
         PsychPortAudio('FillBuffer', pahandle, [stream; stream]);
         t0 = PsychPortAudio('Start', pahandle, 1, 0, 1);
         tgTime = t0 + ITI + sum(Tseq)+tSOA;
@@ -261,8 +262,12 @@ dotRect = [-dotpRad,-dotpRad,dotpRad,dotpRad]+[winRect(3),winRect(4),winRect(3),
 
 lastChange = 0; 
 changeIdx = 0;
-checkScreen=1; % whether to show the performance screen 
 HideCursor(scr);
+if scr==0
+    checkScreen = 1; % whether to show the performance screen 
+else
+    checkScreen = -1;
+end
 for i = 1:pretNum
     if mod(i, checkPer) == 1 && i>1% each 10 trial rest 1s+
         if checkScreen == 1
@@ -415,12 +420,16 @@ if i == pretNum || checkThreshStage || havetocheck
     HideCursor(scr);
 end
 %% main experiment
-checkScreen=1; % whether to show the performance screen 
+if scr==0
+    checkScreen = 1; % whether to show the performance screen 
+else
+    checkScreen = -1;
+end
 for i = pretNum + (1:4*triNum)
-    if mod(i-pretNum, triNum) == 1 && i>1% each block rest 10s+
+    if mod(i-pretNum, triNum) == 1 && (i-pretNum)>1% each block rest 10s+
         oper = showInstruc_Rest(w,'Rest',instFolder,'space','backspace',10);
         checkScreen = checkScreen*oper; % if oper == -1, then change check/rest screen setting
-    elseif mod(i-pretNum, checkPer) == 1 && i>1% each 15 trial rest 2s+
+    elseif mod(i-pretNum, checkPer) == 1 && (i-pretNum)>1% each 15 trial rest 2s+
         if checkScreen == 1
             oper = showTrialStats(w, i, checkPer, results, pretNum, 'Return', 'BackSpace', instFolder, 'Check');
             checkScreen = checkScreen*oper; % if oper == -1, then change to rest screen

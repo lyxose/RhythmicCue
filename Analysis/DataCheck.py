@@ -10,12 +10,12 @@ YLutilpy.default_img_set()
 import matplotlib.pyplot as plt
 YLutilpy.default_img_set()
 
-subIDs = [2]  # 这里填你要分析的被试编号
+subIDs = [1,2]  # 这里填你要分析的被试编号
 groupID = 1
 
 all_dfs = []
 for subID in subIDs:
-    for prefix_type in ['V']:
+    for prefix_type in ['V','A']:
         prefix = f"../Data/{prefix_type}_Result_G{groupID}_Sub{subID}_"
         files = glob.glob(prefix + "*.csv")
         if not files:
@@ -87,8 +87,8 @@ import numpy as np
 
 # 初始化设置
 YLutilpy.default_img_set()
-for subIDs in [[1],[2],[3],[4]]:  # 被试编号
-    for prefix_types in [['V'],['A']]:  # 组编号
+for subIDs in [[1],[2],[1,2]]:  # 被试编号
+    for prefix_types in [['A'],['V']]:  # 组编号
         groupID = 1
         all_dfs = []
 
@@ -163,7 +163,11 @@ for subIDs in [[1],[2],[3],[4]]:  # 被试编号
         axes[2].set_ylabel('Ratio Value')
         axes[2].legend(title='Cue Type', loc='upper left', bbox_to_anchor=(1, 1))
 
-        plt.tight_layout()
+        # 设置整体的标题和布局
+        plt.suptitle(f'Subjects: {subIDs}, Modality: {prefix_types}', fontsize=16)
+        plt.tight_layout(rect=[0, 0, 1, 0.96])
+
+        # plt.tight_layout()
         plt.show()
 
 # %%

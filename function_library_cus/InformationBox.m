@@ -100,7 +100,7 @@ function [groupID, subjID, subjName, subjGender, subjAge, threshold, seqTypeID, 
         % get average threshold as the guessed staricase start point
         priorThreIdx = groupSubset & SubjInfo.(threhKey)~=0;
         if any(priorThreIdx) && ~reRun
-            threshold = mean(SubjInfo{priorThreIdx, threhKey});
+            threshold = max(SubjInfo{priorThreIdx, threhKey});
             exampleInfo{strcmp(header,threhKey)} = threshold;
         end
 
