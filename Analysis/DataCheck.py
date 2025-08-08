@@ -87,7 +87,7 @@ import numpy as np
 
 # 初始化设置
 YLutilpy.default_img_set()
-for subIDs in [[1],[2],[1,2]]:  # 被试编号
+for subIDs in [[1],[2],[3],[4],[5],[1,2,3,4,5]]:  # 被试编号
     for prefix_types in [['A'],['V']]:  # 组编号
         groupID = 1
         all_dfs = []
@@ -146,7 +146,7 @@ for subIDs in [[1],[2],[1,2]]:  # 被试编号
         pivot_rt.plot(kind='bar', ax=axes[0], color=[color_dict[c] for c in cue_order])
         axes[0].set_title('Mean Reaction Time (Correct Trials Only)')
         axes[0].set_xlabel('tSOA Group')
-        axes[0].set_ylabel('RT (ms)')
+        axes[0].set_ylabel('RT (s)')
         axes[0].get_legend().remove()
 
         # ACC子图

@@ -95,9 +95,9 @@ keys = {'UpArrow', 'DownArrow'};   % response keyName
 keyCodes = KbName(keys);           % response keyCodes
 noiseAmp = 0.2;                    % background contrast
 cueAmp   = 0.3;                    % fixed contrast which should be clear enough for all person
+fixSize  = 0.162;                  % diameter of fixation dot, in degree
 GaborWidth = 1.2; % target width in degree
-GaborSF = 2;        % cycle per degree
-bgWidth = 15;       % background width, in degree
+GaborSF = 6;        % cycle per degree
 if gstgAmp == 0
     gstgAmp  = 0.008;               % guessed contrast of target (as the start point of staircase)
 end
@@ -110,38 +110,32 @@ if triNum < 1 || mod(triNum*(1-catTriR), sum(tSOAp))*length(tTilt)~=0
     error('triNum*(1-catTriR)/2 must be divisible by both sum(tSOAp) * length(tTilt)! try %.0f', 2*lcm(catTriN,sum(tSOAp)*length(tTilt)));
 end
 if pretNum < 1 || mod(pretNum*(1-catTriR), sum(tSOAp))*length(tTilt)*length(cueTypes) ~=0 ...
-               || mod(pretNum*catTriR, length(cueTypes)) ~=0
+               || mod(pretNum*catTriR, length(tSOAs)) ~=0
     [~,catTriN] = rat(catTriR);
     error('pretNum*(1-catTriR) must be divisible by sum(tSOAp) * length(tTilt) * length(cueTypes), and pretNum*catTriR by length(cueTypes)! try %.0f', lcm(catTriN,sum(tSOAp)*length(tTilt)*length(cueTypes)));
 end
 
-%% trial-results table
 preCatNum = pretNum * catTriR; % catch trial number in pretrial stage
 preTruNum = pretNum-preCatNum;
-[~,results] = expRun.generateTrialList('ID',nan,'cueType', ...
-    cueTypes,'t0',nan,'ITI',nan,'cSOA',{[]},'tSOA',1:length(tSOAs.AU),'tTilt', ...
+
+[~,block] = expRun.generateTrialList('ID',nan,'cueType', ...
+    nan,'t0',nan,'ITI',nan,'cSOA',{[]},'tSOA',1:length(tSOAs.AU),'tTilt', ...
     1:length(tTilt),'tgAmp',nan,'tgTime',nan,'RT',nan, 'Key',{''},...
-    'judge',nan,'soaSeed',nan,'noiseSeed',nan);
+    'judge',0,'soaSeed',nan,'noiseSeed',nan);
 [~,catchs] = expRun.generateTrialList('ID',nan,'cueType', ...
-    cueTypes,'t0',nan,'ITI',nan,'cSOA',{[]},'tSOA',1:length(tSOAs.AU),'tTilt', ...
+    nan,'t0',nan,'ITI',nan,'cSOA',{[]},'tSOA',1:length(tSOAs.AU),'tTilt', ...
     0,'tgAmp',0,'tgTime',nan,'RT',nan, 'Key',{''},...
     'judge',nan,'soaSeed',nan,'noiseSeed',nan);
-% Repeat the table to reach pretNum rows, then shuffle
-repTimes = preTruNum / height(results);
-results = repmat(results, repTimes, 1);
-catchs = repmat(catchs, preCatNum / height(catchs), 1);
-results = [results; catchs];
-results = results(randperm(height(results)), :);
-% fill cSOA and tSOA
-for i = 1:height(results)
-    cueType_i = results.cueType{i};
-    results.cSOA{i} = cSOAs.(cueType_i);
-    if results.tSOA(i)~=0
-        tSOA_idx = results.tSOA(i);
-        results.tSOA(i) = tSOAs.(cueType_i)(tSOA_idx);
-    end
+% threshold stage
+repTimes = preTruNum / height(block);  
+repCTimes = preCatNum / height(catchs);
+preblock = [repmat(block, repTimes, 1); repmat(catchs, repCTimes, 1)];
+results = preblock(randperm(height(preblock)), :);  
+results.cueType = repmat({'AU'},pretNum,1);
+results.cSOA = repmat({cSOAs.AU},pretNum,1);
+for i = 1:pretNum
+    results.tSOA(i) = tSOAs.AU(results.tSOA(i));
 end
-
 
 % formal task
 
@@ -149,13 +143,17 @@ end
     nan,'t0',nan,'ITI',nan,'cSOA',{[]},'tSOA',tSOAs.AU,'tTilt', ...
     1:length(tTilt),'tgAmp',nan,'tgTime',nan,'RT',nan, 'Key',{''},...
     'judge',nan,'soaSeed',nan,'noiseSeed',nan);
+[~,catchs] = expRun.generateTrialList('ID',nan,'cueType', ...
+    nan,'t0',nan,'ITI',nan,'cSOA',{[]},'tSOA',1:length(tSOAs.AU),'tTilt', ...
+    0,'tgAmp',0,'tgTime',nan,'RT',nan, 'Key',{''},...
+    'judge',nan,'soaSeed',nan,'noiseSeed',nan);
 triNum = triNum / 2; % split to 2 part 
 CatNum = triNum * catTriR;
 TruNum = triNum - CatNum;
 repTimes = TruNum / height(block);  
 block = repmat(block, repTimes, 1);  
 % concetnate catch trials
-catBlock = block(1:CatNum, :); %
+catBlock = repmat(catchs, CatNum / height(catchs), 1);
 catBlock.tTilt(:) = 0;
 catBlock.tgAmp(:) = 0;
 block = [block; catBlock];
@@ -206,7 +204,7 @@ scr = max(Screen('Screens')); % 1; for 604-4
 [w,winRect] = Screen('OpenWindow',scr,127.5);
 scWidth = Screen('DisplaySize',scr)/10; % in cm
 ut = UT(scWidth,winRect(3),headDist,false);
-dotpRad = ut.deg2pix(GaborWidth)/2; % radius of fixation dot in pixcel
+dotpRad = ut.deg2pix(fixSize)/2; % radius of fixation dot in pixcel
 dotRect = [-dotpRad,-dotpRad,dotpRad,dotpRad]+[winRect(3),winRect(4),winRect(3),winRect(4)]./2;
 tgCenter = round(winRect(3:4)/2);
 Screen('TextSize',w,textSize);
@@ -215,7 +213,7 @@ Screen('TextSize',w,textSize);
 cueTexture = genStimTex(w, winRect, ut, cueAmp, tgCenter, GaborSF, GaborWidth, 90);
 tgTexture = zeros(1,length(tTilt));
 for i = 1:length(tTilt)
-    tgTexture(i) = genStimTex(w, winRect, ut, mean([cueAmp,tgAmp]), tgCenter, GaborSF, GaborWidth, tTilt(i));
+    tgTexture(i) = genStimTex(w, winRect, ut, mean([cueAmp,gstgAmp]), tgCenter, GaborSF, GaborWidth, tTilt(i));
 end
 
 % play example stimulus, then check
@@ -395,8 +393,8 @@ for i = 1:pretNum
             results.judge(i) = 1; % no response is correct for catch trial
         end
     end
-    fprintf('Pre-%s  #%.0f  %.4fs, "%s", judge-%.0f, tgAmp-%.3f, temporalErr-%.5fs\n',results.cueType{i}, results.ID(i), RT, KbName(find(keyCode,1)), results.judge(i), tgAmp,  sum(abs(tempSeq-fbTs)))
-    results.tgAmp(i)=tgAmp;
+    fprintf('Pre-%s  #%.0f  %.4fs, "%s", judge-%.0f, tgAmp-%.3f, temporalErr-%.5fs\n',results.cueType{i}, results.ID(i), RT, KbName(find(keyCode,1)), results.judge(i), thistgAmp,  sum(abs(tempSeq-fbTs)))
+    results.tgAmp(i)=thistgAmp;
     % staircase: one-up two-down
     if results.tTilt(i)==0 % catch trial, do not change tgAmp
         continue

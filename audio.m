@@ -94,7 +94,7 @@ keys = {'UpArrow', 'DownArrow'};   % response keyName
 keyCodes = KbName(keys);           % response keyCodes
 noiseAmp = 0.1;                    % 90% amplitude is remained for titrating target loudness
 cueAmp   = 0.4;                    % fixed amplitude which should be clear enough for all person
-fixSize  = 1.2;                    % diameter of fixation dot, in degree 
+fixSize  = 0.162;                  % diameter of fixation dot, in degree 
 if gstgAmp == 0
     gstgAmp  = 0.05;               % guessed amplitude of target (as the start point of staircase)
 end
@@ -299,7 +299,7 @@ for i = 1:pretNum
         thistFreq = 0;
         thistgAmp = 0;
     end
-    stream = genStream(min(ITIs), ITI, cSOA, cFreq, tSOA, thistFreq, maxRT, stiD, sampRate, noiseAmp, cueAmp, tgAmp, ramp, noiseSeed);
+    stream = genStream(min(ITIs), ITI, cSOA, cFreq, tSOA, thistFreq, maxRT, stiD, sampRate, noiseAmp, cueAmp, thistgAmp, ramp, noiseSeed);
     PsychPortAudio('FillBuffer', pahandle, [stream; stream]);
     t0 = PsychPortAudio('Start', pahandle, 1, 0, 1);  % no-repeat, start rightnow, get the actual timing
     Screen('Flip',w);
@@ -346,7 +346,7 @@ for i = 1:pretNum
     end
     [startTime, endPositionSecs, xruns, estStopTime] = PsychPortAudio('Stop', pahandle,1);
     fprintf('Pre-%s  #%.0f  %.4fs, "%s", judge-%.0f, tgAmp-%.3f, temporalErr-%.4fs\n',results.cueType{i}, results.ID(i), RT, KbName(find(keyCode,1)), results.judge(i), tgAmp, estStopTime-timeout)
-    results.tgAmp(i)=tgAmp;
+    results.tgAmp(i)=thistgAmp;
     % staircase: one-up two-down
     if results.tFreq(i)==0 % catch trial, do not change tgAmp
         continue
