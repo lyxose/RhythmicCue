@@ -82,22 +82,18 @@ typeSeq  = seqTypes{seqID};        % sequence of schedule conditions, should be 
 triNum   = 60;                     % trial number of each schedule condition, should be an integer multiple of length(tSOA)
 catTriR  = 1/5;                    % catch trial rate of whole experiment
 checkPer = 15;                     % check performance each "checkPer" trials
-pretNum  = 120;                    % maximum pretrial number of threshold stage
-keepStep = 5;                     % keep the step size in the first N trials
-revTimes = 10;                     % stop threshold stage when reaching this reverse times
+pretNum  = 90;                     % pretrial number of threshold stage
 stiD     = 0.1;                    % duration of each flash
-ramp     = 0.004;                  % Fade in and fade out
 ITIs     = [0.8 1.4];              % inter trial interval range (randomly selected in each trial)
 maxRT    = 2;                      % skip to next trial in 2s (facilitating post-target EEG analysis)
 cFreq    = 1750;                   % pitch of cue
 tTilt    = [45 135];               % target orientation conditions
 keys = {'UpArrow', 'DownArrow'};   % response keyName
 keyCodes = KbName(keys);           % response keyCodes
-noiseAmp = 0.2;                    % background contrast
 cueAmp   = 0.3;                    % fixed contrast which should be clear enough for all person
 fixSize  = 0.162;                  % diameter of fixation dot, in degree
 GaborWidth = 1.2; % target width in degree
-GaborSF = 6;        % cycle per degree
+GaborSF = 2;        % cycle per degree
 if gstgAmp == 0
     gstgAmp  = 0.008;               % guessed contrast of target (as the start point of staircase)
 end
@@ -292,6 +288,26 @@ if scr==0
 else
     checkScreen = -1;
 end
+
+
+% Parameters for QUEST
+pThreshold = 0.5;   % Target performance level for the threshold
+beta = 3.5;         % Steepness of the Weibull function
+delta = 0.01;       % Lapse rate (proportion of errors due to inattention)
+gamma = 0.05;        % Guess rate (for 2AFC, it's 50%)
+range = 5;          % Range of plausible log10(amplitude) values to test
+grain = 0.01;       % Granularity of the tested values
+
+% Initial guess for the threshold amplitude, converted to log10 scale
+tGuess = log10(gstgAmp);
+% Standard deviation of the initial guess
+tGuessSd = 2;
+
+q = QuestCreate(tGuess, tGuessSd, pThreshold, beta, delta, gamma, grain, range);
+q.normalizePdf = 1; % Recommended for better performance
+q = QuestUpdate(q, log10(0.001), 0);             % initialization with no prior data
+q = QuestUpdate(q, log10(cueAmp), 1); % initialization with known over-threshold cue amplitude
+
 for i = 1:pretNum
     if mod(i, checkPer) == 1 && i>1% each 10 trial rest 1s+
         if checkScreen == 1
@@ -318,15 +334,15 @@ for i = 1:pretNum
     ITI = results.ITI(i);
     if results.tTilt(i)~=0 % not catch trial
         thistTilt = tTilt(results.tTilt(i));
-        thistgAmp = tgAmp;
+        tgAmp = 10^QuestQuantile(q); % get the next amplitude to test
     else
         thistTilt = 0;
-        thistgAmp = 0;
+        tgAmp = 0;
     end
     % close old texture then draw new textures to save computer memory 
     for j = 1:length(tTilt)
         Screen('Close',tgTexture(j))
-        tgTexture(j) = genStimTex(w, winRect, ut, thistgAmp, tgCenter, GaborSF, GaborWidth, thistTilt);
+        tgTexture(j) = genStimTex(w, winRect, ut, tgAmp, tgCenter, GaborSF, GaborWidth, thistTilt);
     end
 
     % Show fixation with pure beep
@@ -393,54 +409,13 @@ for i = 1:pretNum
             results.judge(i) = 1; % no response is correct for catch trial
         end
     end
-    fprintf('Pre-%s  #%.0f  %.4fs, "%s", judge-%.0f, tgAmp-%.3f, temporalErr-%.5fs\n',results.cueType{i}, results.ID(i), RT, KbName(find(keyCode,1)), results.judge(i), thistgAmp,  sum(abs(tempSeq-fbTs)))
-    results.tgAmp(i)=thistgAmp;
-    % staircase: one-up two-down
-    if results.tTilt(i)==0 % catch trial, do not change tgAmp
-        continue
-    end
-    if results.judge(i)~=1 % wrong key or timeout
-        tgAmp = tgAmp+ampStep;
-        corrCount = 0;
-        if i>keepStep && lastChange(end)~=-1
-            lastChange = [lastChange,-1];
-            changeIdx = [changeIdx, i];
-            ampStep = dynaStep*ampStep;
-        end
-    else
-        corrCount = corrCount + 1;
-        if corrCount==2
-            tgAmp = tgAmp-ampStep;
-            corrCount = 0;
-            if i>keepStep && lastChange(end)~=1
-                lastChange = [lastChange,1];
-                changeIdx = [changeIdx, i];
-                ampStep = dynaStep*ampStep;
-            end
-        end
-    end     
-    % Check if reversed for enough times and keeped this amp once, then break 
-    if length(lastChange) >= 2+revTimes && corrCount~=0 % 2+ because of the 0-head and the first step should not be considered
-        break
-    end
+    fprintf('Pre-%s  #%.0f  %.4fs, "%s", judge-%.0f, tgAmp-%.3f, temporalErr-%.5fs\n',results.cueType{i}, results.ID(i), RT, KbName(find(keyCode,1)), results.judge(i), tgAmp,  sum(abs(tempSeq-fbTs)))
+    results.tgAmp(i)=tgAmp;
+    % quest update
+    % if results.tFreq(i)~=0 % if not catch trial, update quest
+    q = QuestUpdate(q, log10(tgAmp), results.judge(i));
 end
-% IF reach maxium pretrial number
-if i == pretNum
-    warning('Not enough reverse times(%d)!!', revTimes)
-end
-% Check if the max and min tgAmp of the last 4 reversals are within ±3 step sizes of the final threshold tgAmp
-% Take the trial indices of the last 4 reversals
-last4Idx = changeIdx(end-3:end);
-last4Amps = results.tgAmp(last4Idx);
-maxAmp = max(last4Amps);
-minAmp = min(last4Amps);
-ampRange = 4 * ampStep;
-if maxAmp <= tgAmp + ampRange && minAmp >= tgAmp - ampRange
-    havetocheck = false;
-else
-    havetocheck = true;
-    disp('The max and min tgAmp of the last 4 reversals exceed ±4 step sizes of the final threshold!');
-end
+%% threshold stage results
 % visualization pretrials 
 figure;
 plot(results.tgAmp(1:i));
@@ -450,8 +425,7 @@ rowIdx = find(SubjInfo.subjID == subjID & SubjInfo.groupID == groupID,1);
 SubjInfo(rowIdx,'thresholdV') = {tgAmp};
 writetable(SubjInfo,'./Data/SubjInfo.csv');
 
-% IF reach maxium pretrial number
-if i == pretNum || checkThreshStage || havetocheck
+if checkThreshStage
     sca;
     ShowCursor(scr);
     y ='y';
@@ -468,6 +442,7 @@ if i == pretNum || checkThreshStage || havetocheck
     Screen('TextSize',w,textSize);
     HideCursor(scr);
 end
+tgAmp = QuestQuantile(q); % get the final threshold amplitude
 
 % generate target frames for all formal trials
 cueTexture = genStimTex(w, winRect, ut, cueAmp, tgCenter, GaborSF, GaborWidth, 90);
@@ -594,11 +569,11 @@ if saveRaw
 end
 catch me
     sca;
+    PsychPortAudio('Close');
     ShowCursor(scr);
     disp(me);
     disp(me.stack);
     save(sprintf('./Data/Interrupted/V_EXPINT_G%.0f_Sub%.0f_%s_%s',groupID, subjID, subjName, DTstr))
-    PsychPortAudio('Close');
 end
 
 

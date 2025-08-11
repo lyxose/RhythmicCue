@@ -81,11 +81,9 @@ typeSeq  = seqTypes{seqID};        % sequence of schedule conditions, should be 
 triNum   = 60;                     % trial number of each schedule condition, should be an integer multiple of length(tSOA)
 catTriR  = 1/5;                    % catch trial rate of whole experiment
 checkPer = 15;                     % check performance each "checkPer" trials
-pretNum  = 120;                    % maximum pretrial number of threshold stage
-keepStep = 30;                     % keep the step size in the first N trials
-revTimes = 10;                     % stop threshold stage when reaching this reverse times
+pretNum  = 90;                     % pretrial number of threshold stage
 stiD     = 0.05;                   % duration of each beep
-ramp     = 0.004;                  % Fade in and fade out
+ramp     = 0.005;                  % Fade in and fade out
 ITIs     = [0.8 1.4];              % inter trial interval range (randomly selected in each trial)
 maxRT    = 2;                      % skip to next trial in 2s (facilitating post-target EEG analysis)
 cFreq    = 1750;                   % pitch of cue
@@ -94,7 +92,7 @@ keys = {'UpArrow', 'DownArrow'};   % response keyName
 keyCodes = KbName(keys);           % response keyCodes
 noiseAmp = 0.1;                    % 90% amplitude is remained for titrating target loudness
 cueAmp   = 0.4;                    % fixed amplitude which should be clear enough for all person
-fixSize  = 0.162;                  % diameter of fixation dot, in degree 
+fixSize  = 0.162*2;                % diameter of fixation dot, in degree 
 if gstgAmp == 0
     gstgAmp  = 0.05;               % guessed amplitude of target (as the start point of staircase)
 end
@@ -108,7 +106,7 @@ if triNum < 1 || mod(triNum*(1-catTriR), sum(tSOAp))*length(tFreq)~=0
     error('triNum*(1-catTriR)/2 must be divisible by both sum(tSOAp) * length(tFreq)! try %.0f', 2*lcm(catTriN,sum(tSOAp)*length(tFreq)));
 end
 if pretNum < 1 || mod(pretNum*(1-catTriR), sum(tSOAp))*length(tFreq)*length(cueTypes) ~=0 ...
-               || mod(pretNum*catTriR, length(cueTypes)) ~=0
+               || mod(pretNum*catTriR, length(tSOAs)) ~=0
     [~,catTriN] = rat(catTriR);
     error('pretNum*(1-catTriR) must be divisible by sum(tSOAp) * length(tFreq) * length(cueTypes), and pretNum*catTriR by length(cueTypes)! try %.0f', lcm(catTriN,sum(tSOAp)*length(tFreq)*length(cueTypes)));
 end
@@ -116,31 +114,25 @@ end
 %% trial-results table
 preCatNum = pretNum * catTriR; % catch trial number in pretrial stage
 preTruNum = pretNum-preCatNum;
-% threshold stage
-[~,results] = expRun.generateTrialList('ID',nan,'cueType', ...
-    cueTypes,'t0',nan,'ITI',nan,'cSOA',{[]},'tSOA',1:length(tSOAs.AU),'tFreq', ...
+
+[~,block] = expRun.generateTrialList('ID',nan,'cueType', ...
+    nan,'t0',nan,'ITI',nan,'cSOA',{[]},'tSOA',1:length(tSOAs.AU),'tFreq', ...
     1:length(tFreq),'tgAmp',nan,'tgTime',nan,'RT',nan, 'Key',{''},...
-    'judge',nan,'soaSeed',nan,'noiseSeed',nan);
+    'judge',0,'soaSeed',nan,'noiseSeed',nan);
 [~,catchs] = expRun.generateTrialList('ID',nan,'cueType', ...
-    cueTypes,'t0',nan,'ITI',nan,'cSOA',{[]},'tSOA',1:length(tSOAs.AU),'tFreq', ...
+    nan,'t0',nan,'ITI',nan,'cSOA',{[]},'tSOA',1:length(tSOAs.AU),'tFreq', ...
     0,'tgAmp',0,'tgTime',nan,'RT',nan, 'Key',{''},...
     'judge',nan,'soaSeed',nan,'noiseSeed',nan);
-% Repeat the table to reach pretNum rows, then shuffle
-repTimes = preTruNum / height(results);
-results = repmat(results, repTimes, 1);
-catchs = repmat(catchs, preCatNum / height(catchs), 1);
-results = [results; catchs];
-results = results(randperm(height(results)), :);
-% fill cSOA and tSOA
-for i = 1:height(results)
-    cueType_i = results.cueType{i};
-    results.cSOA{i} = cSOAs.(cueType_i);
-    if results.tSOA(i)~=0
-        tSOA_idx = results.tSOA(i);
-        results.tSOA(i) = tSOAs.(cueType_i)(tSOA_idx);
-    end
+% threshold stage
+repTimes = preTruNum / height(block);  
+repCTimes = preCatNum / height(catchs);
+preblock = [repmat(block, repTimes, 1); repmat(catchs, repCTimes, 1)];
+results = preblock(randperm(height(preblock)), :);  
+results.cueType = repmat({'AU'},pretNum,1);
+results.cSOA = repmat({cSOAs.AU},pretNum,1);
+for i = 1:pretNum
+    results.tSOA(i) = tSOAs.AU(results.tSOA(i));
 end
-
 
 % formal task
 
@@ -148,13 +140,17 @@ end
     nan,'t0',nan,'ITI',nan,'cSOA',{[]},'tSOA',tSOAs.AU,'tFreq', ...
     1:length(tFreq),'tgAmp',nan,'tgTime',nan,'RT',nan, 'Key',{''},...
     'judge',nan,'soaSeed',nan,'noiseSeed',nan);
+[~,catchs] = expRun.generateTrialList('ID',nan,'cueType', ...
+    nan,'t0',nan,'ITI',nan,'cSOA',{[]},'tSOA',1:length(tSOAs.AU),'tFreq', ...
+    0,'tgAmp',0,'tgTime',nan,'RT',nan, 'Key',{''},...
+    'judge',nan,'soaSeed',nan,'noiseSeed',nan);
 triNum = triNum / 2; % split to 2 part 
 CatNum = triNum * catTriR;
 TruNum = triNum - CatNum;
 repTimes = TruNum / height(block);  
 block = repmat(block, repTimes, 1);   
 % concetnate catch trials
-catBlock = block(1:CatNum, :); %
+catBlock = repmat(catchs, CatNum / height(catchs), 1);
 catBlock.tFreq(:) = 0;
 catBlock.tgAmp(:) = 0;
 block = [block; catBlock];
@@ -196,7 +192,7 @@ for i = transpose(find(AUidx))
 end
 
 try
-%% staircase titrating task
+%% instruction and threshold stage by quest
 pahandle = PsychPortAudio('Open', deviceID, 1, 3, sampRate, 2);
 
 % titrate white noise volume
@@ -250,7 +246,6 @@ while 1
 end
 % generate embedded stream
 % 'one up two down' staircase to get mixture ratio
-tgAmp = gstgAmp;
 corrCount = 0;  % counting correct times for staircase procedure
 scr = max(Screen('Screens')); % 1; for 604-4
 [w,winRect] = Screen('OpenWindow',scr,127);
@@ -268,6 +263,26 @@ if scr==0
 else
     checkScreen = -1;
 end
+
+
+% Parameters for QUEST
+pThreshold = 0.5;   % Target performance level for the threshold
+beta = 3.5;         % Steepness of the Weibull function
+delta = 0.01;       % Lapse rate (proportion of errors due to inattention)
+gamma = 0.05;        % Guess rate (for 2AFC, it's 50%)
+range = 5;          % Range of plausible log10(amplitude) values to test
+grain = 0.01;       % Granularity of the tested values
+
+% Initial guess for the threshold amplitude, converted to log10 scale
+tGuess = log10(gstgAmp);
+% Standard deviation of the initial guess
+tGuessSd = 2;
+
+q = QuestCreate(tGuess, tGuessSd, pThreshold, beta, delta, gamma, grain, range);
+q.normalizePdf = 1; % Recommended for better performance
+q = QuestUpdate(q, log10(0.001), 0);             % initialization with no prior data
+q = QuestUpdate(q, log10(cueAmp), 1); % initialization with known over-threshold cue amplitude
+
 for i = 1:pretNum
     if mod(i, checkPer) == 1 && i>1% each 10 trial rest 1s+
         if checkScreen == 1
@@ -294,12 +309,12 @@ for i = 1:pretNum
     ITI = results.ITI(i);
     if results.tFreq(i)~=0 % not catch trial
         thistFreq = tFreq(results.tFreq(i));
-        thistgAmp = tgAmp;
+        tgAmp = 10^QuestQuantile(q); % get the next amplitude to test
     else
         thistFreq = 0;
-        thistgAmp = 0;
+        tgAmp = 0;
     end
-    stream = genStream(min(ITIs), ITI, cSOA, cFreq, tSOA, thistFreq, maxRT, stiD, sampRate, noiseAmp, cueAmp, thistgAmp, ramp, noiseSeed);
+    stream = genStream(min(ITIs), ITI, cSOA, cFreq, tSOA, thistFreq, maxRT, stiD, sampRate, noiseAmp, cueAmp, tgAmp, ramp, noiseSeed);
     PsychPortAudio('FillBuffer', pahandle, [stream; stream]);
     t0 = PsychPortAudio('Start', pahandle, 1, 0, 1);  % no-repeat, start rightnow, get the actual timing
     Screen('Flip',w);
@@ -346,53 +361,13 @@ for i = 1:pretNum
     end
     [startTime, endPositionSecs, xruns, estStopTime] = PsychPortAudio('Stop', pahandle,1);
     fprintf('Pre-%s  #%.0f  %.4fs, "%s", judge-%.0f, tgAmp-%.3f, temporalErr-%.4fs\n',results.cueType{i}, results.ID(i), RT, KbName(find(keyCode,1)), results.judge(i), tgAmp, estStopTime-timeout)
-    results.tgAmp(i)=thistgAmp;
-    % staircase: one-up two-down
-    if results.tFreq(i)==0 % catch trial, do not change tgAmp
-        continue
-    end
-    if results.judge(i)~=1 % wrong key or timeout
-        tgAmp = tgAmp+ampStep;
-        corrCount = 0;
-        if i>keepStep && lastChange(end)~=-1
-            lastChange = [lastChange,-1];
-            changeIdx = [changeIdx, i];
-            ampStep = dynaStep*ampStep;
-        end
-    else
-        corrCount = corrCount + 1;
-        if corrCount==2
-            tgAmp = tgAmp-ampStep;
-            corrCount = 0;
-            if i>keepStep && lastChange(end)~=1
-                lastChange = [lastChange,1];
-                changeIdx = [changeIdx, i];
-                ampStep = dynaStep*ampStep;
-            end
-        end
-    end     
-    % Check if reversed for enough times and keeped this amp once, then break 
-    if length(lastChange) >= 2+revTimes && corrCount~=0 % 2+ because of the 0-head and the first step should not be considered
-        break
-    end
+    results.tgAmp(i)=tgAmp;
+    % quest update
+    % if results.tFreq(i)~=0 % if not catch trial, update quest
+    q = QuestUpdate(q, log10(tgAmp), results.judge(i));
+    
 end
-% IF reach maxium pretrial number
-if i == pretNum
-    warning('Not enough reverse times(%d)!!', revTimes)
-end
-% Check if the max and min tgAmp of the last 4 reversals are within ±3 step sizes of the final threshold tgAmp
-% Take the trial indices of the last 4 reversals
-last4Idx = changeIdx(end-3:end);
-last4Amps = results.tgAmp(last4Idx);
-maxAmp = max(last4Amps);
-minAmp = min(last4Amps);
-ampRange = 4 * ampStep;
-if maxAmp <= tgAmp + ampRange && minAmp >= tgAmp - ampRange
-    havetocheck = false;
-else
-    havetocheck = true;
-    warning('The max and min tgAmp of the last 4 reversals exceed ±4 step sizes of the final threshold!');
-end
+%% threshold stage results
 % visualization pretrials 
 figure;
 plot(results.tgAmp(1:i));
@@ -402,7 +377,7 @@ rowIdx = find(SubjInfo.subjID == subjID & SubjInfo.groupID == groupID,1);
 SubjInfo(rowIdx,'thresholdA') = {tgAmp};
 writetable(SubjInfo,'./Data/SubjInfo.csv');
 
-if i == pretNum || checkThreshStage || havetocheck
+if checkThreshStage
     sca;
     ShowCursor(scr);
     y ='y';
@@ -419,6 +394,8 @@ if i == pretNum || checkThreshStage || havetocheck
     Screen('TextSize',w,textSize);
     HideCursor(scr);
 end
+
+tgAmp = QuestQuantile(q); % get the final threshold amplitude
 %% main experiment
 if scr==0
     checkScreen = 1; % whether to show the performance screen 
@@ -518,11 +495,11 @@ if saveRaw
 end
 catch me
     sca;
+    PsychPortAudio('Close');
     ShowCursor(scr);
     disp(me);
     disp(me.stack);
     save(sprintf('./Data/Interrupted/A_EXPINT_G%.0f_Sub%.0f_%s_%s',groupID, subjID, subjName, DTstr))
-    PsychPortAudio('Close');
 end
 
 

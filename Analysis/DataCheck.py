@@ -87,7 +87,7 @@ import numpy as np
 
 # 初始化设置
 YLutilpy.default_img_set()
-for subIDs in [[1],[2],[3],[4],[5],[1,2,3,4,5]]:  # 被试编号
+for subIDs in [[2]]:  # 被试编号
     for prefix_types in [['A'],['V']]:  # 组编号
         groupID = 1
         all_dfs = []
@@ -170,33 +170,119 @@ for subIDs in [[1],[2],[3],[4],[5],[1,2,3,4,5]]:  # 被试编号
         # plt.tight_layout()
         plt.show()
 
-# %%
-# 绘制ID<0的trial中tgAmp的变化曲线
-for subID in [1,2,3,4,5]:
-    for prefix_type in ['V', 'A']:
-        prefix = f"../Data/{prefix_type}_Result_G{groupID}_Sub{subID}_"
-        files = glob.glob(prefix + "*.csv")
-        if not files:
-            print(f"Warning: No file found with prefix {prefix}")
-            continue
-        filename = files[0]
-        df = pd.read_csv(filename)
+# %% threshold stage analysis
 
-        df_sub5_invalid = df[(df['ID'] < 0)]
-        if df_sub5_invalid.empty:
-            print(f"No invalid trials (ID<0) found for subID={subID}.")
-        else:
-            plt.figure(figsize=(8,4))
-            plt.plot(df_sub5_invalid['tgAmp'].values, marker='o')
+# 读取CSV文件，第一行作为表头
+import YLutilpy
+YLutilpy.default_img_set()
+import pandas as pd
+import numpy as np
+import glob 
+import matplotlib.pyplot as plt
+#取消网格线
+plt.rcParams['axes.grid'] = False
+subIDs = [1,2,3,4,5]
+groupIDs = [1]
+modalitys = ['A']  # 或 'V','A'，根据需要选择
+# 构建文件名前缀
+for subID in subIDs:
+    for groupID in groupIDs:
+        for modality in modalitys:
+    
+            prefix = f"../Data_0808/{modality}_Result_G{groupID}_Sub{subID}_"
+            files = glob.glob(prefix + "*.csv")
+            if not files:
+                continue
+            filename = files[0]
+            df_tmp = pd.read_csv(filename)
+            aveACC = df_tmp[df_tmp['ID'] > 0]['judge'].mean()
+
+            df_tmp = df_tmp[df_tmp['ID'] <= 0]  # 保留ID<=0且judge==1的行
+            # 若存在tTilt列，删除tTilt等于0的行
+            if 'tTilt' in df_tmp.columns:
+                df_tmp = df_tmp.dropna(subset=['tTilt'])
+                df_tmp = df_tmp[df_tmp['tTilt'] != 0]
+            # 若存在tFreq列，删除tFreq等于0或者nan的行
+            elif 'tFreq' in df_tmp.columns:
+                df_tmp = df_tmp.dropna(subset=['tFreq'])
+                df_tmp = df_tmp[df_tmp['tFreq'] != 0]    # 绘制tgAmp列的变化曲线
+            # 删除tgAmp列为nan的行
+            df_tmp = df_tmp.dropna(subset=['t0'])
+                
+
+            # 绘制tgAmp列的变化曲线
+            plt.figure(figsize=(10, 5))
+            plt.plot(df_tmp.index+1, df_tmp['tgAmp'], marker='o', linestyle='-', color='blue', label='tgAmp')
+            
+            # 标注转折点
+            y = df_tmp['tgAmp'].values
+            extremum_count = 0
+            changeIdx = []
+            for i in range(1, len(y) - 1):
+                # 寻找i之前第一个不与y[i]相等的点
+                prev_idx = i - 1
+                while prev_idx >= 0 and y[prev_idx] == y[i]:
+                    prev_idx -= 1
+                
+                # 如果所有前面的点都相等，则不是极值点
+                if prev_idx < 0:
+                    continue
+
+                # 寻找i之后第一个不与y[i]相等的点
+                next_idx = i + 1
+                while next_idx < len(y) and y[next_idx] == y[i]:
+                    next_idx += 1
+                
+                # 如果所有后面的点都相等，则不是极值点
+                if next_idx >= len(y):
+                    continue
+
+                # 检查当前点i是否是平台的最后一个点
+                is_last_of_plateau = (y[i] != y[i+1])
+
+                # 判断是否为极值点
+                is_extremum = (y[prev_idx] < y[i] and y[i] > y[next_idx]) or \
+                              (y[prev_idx] > y[i] and y[i] < y[next_idx])
+
+                if is_extremum and is_last_of_plateau:
+                    extremum_count += 1
+                    plt.scatter(df_tmp.index.values[i]+1, y[i], c='red', s=100, zorder=5)
+                    plt.text(df_tmp.index.values[i]+1, y[i] + 0.01 * (max(y) - min(y)), str(extremum_count), 
+                             ha='center', va='bottom', fontsize=12, color='black', weight='bold')
+                    # 同时显示index值
+                    plt.text(df_tmp.index.values[i]+1, y[i] - 0.02 * (max(y) - min(y)), str(df_tmp.index.values[i]+1), 
+                             ha='center', va='top', fontsize=10, color='black')
+                    # 记录该点index
+                    changeIdx.append(df_tmp.index.values[i]+1)
+            
+            
+            # 标记最后一个点的tgAmp
+            plt.scatter(df_tmp.index.values[i+1]+1, df_tmp['tgAmp'].values[i+1], c='green', s=100, zorder=5)
+            plt.text(df_tmp.index.values[i+1]+2, df_tmp['tgAmp'].values[i+1], f'Thr: {df_tmp["tgAmp"].values[i]:.5f}',
+                     ha='left', va='center', fontsize=12, color='black', weight='bold')
+            # 标记倒数第4个转折点至最末所有数据点的平均值
+            
+            last_four_avg = df_tmp['tgAmp'].values[df_tmp.index.values>=changeIdx[-4]].mean()
+            
+            
+            
+            # 绘制一条水平线横跨changeIdx[-4]到end
+            start_x = changeIdx[-4]
+            end_x = df_tmp.index.values[-1] + 1
+            plt.hlines(y=last_four_avg, xmin=start_x, xmax=end_x, color="#DC6300", linestyle='--', label=f'Last 4 Avg: {last_four_avg:.5f}', linewidth=3.5)            
+            
+            
+            
+            
+            
+            
+            
             plt.xlabel('Trial Index')
             plt.ylabel('tgAmp')
-            plt.title(f'tgAmp of subID={subID}, Mod={prefix_type}')
-            plt.tight_layout()
+            plt.title(f'Threshold Stage - Sub{subID}, Modality: {modality}, Avg ACC: {aveACC:.3f}')            
+            plt.legend()
             plt.show()
-# %%
-# %% 
-
-# # 读取CSV文件，第一行作为表头
+            # %% 
 # subID = 1
 # groupID = 1
 # # 构建文件名前缀
