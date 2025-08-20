@@ -79,7 +79,7 @@ deviceID = input(['Choose correct audio device and input its DeviceIndex ' ...
 sampRate = DeviceTable.DefaultSampleRate(DeviceTable.DeviceIndex==deviceID);
 typeSeq  = seqTypes{seqID};        % sequence of schedule conditions, should be balanced across subjects  
 triNum   = 60;                     % trial number of each schedule condition, should be an integer multiple of length(tSOA)
-catTriR  = 1/5;                    % catch trial rate of whole experiment
+catTriR  = 0;                      % catch trial rate of whole experiment
 checkPer = 15;                     % check performance each "checkPer" trials
 pretNum  = 90;                     % pretrial number of threshold stage
 stiD     = 0.05;                   % duration of each beep
@@ -363,14 +363,15 @@ for i = 1:pretNum
     fprintf('Pre-%s  #%.0f  %.4fs, "%s", judge-%.0f, tgAmp-%.3f, temporalErr-%.4fs\n',results.cueType{i}, results.ID(i), RT, KbName(find(keyCode,1)), results.judge(i), tgAmp, estStopTime-timeout)
     results.tgAmp(i)=tgAmp;
     % quest update
-    % if results.tFreq(i)~=0 % if not catch trial, update quest
-    q = QuestUpdate(q, log10(tgAmp), results.judge(i));
+    if results.tFreq(i)~=0 % if not catch trial, update quest
+        q = QuestUpdate(q, log10(tgAmp), results.judge(i));
+    end
     
 end
 %% threshold stage results
 % visualization pretrials 
 figure;
-plot(results.tgAmp(1:i));
+plot(results.tgAmp(results.tgAmp>0));
 % update table
 SubjInfo = readtable('./Data/SubjInfo.csv','Format',formator);
 rowIdx = find(SubjInfo.subjID == subjID & SubjInfo.groupID == groupID,1);
@@ -395,7 +396,7 @@ if checkThreshStage
     HideCursor(scr);
 end
 
-tgAmp = QuestQuantile(q); % get the final threshold amplitude
+tgAmp =10^  QuestQuantile(q); % get the final threshold amplitude
 %% main experiment
 if scr==0
     checkScreen = 1; % whether to show the performance screen 

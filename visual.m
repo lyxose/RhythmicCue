@@ -80,7 +80,7 @@ deviceID = input(['Choose correct audio device and input its DeviceIndex ' ...
 sampRate = DeviceTable.DefaultSampleRate(DeviceTable.DeviceIndex==deviceID);
 typeSeq  = seqTypes{seqID};        % sequence of schedule conditions, should be balanced across subjects  
 triNum   = 60;                     % trial number of each schedule condition, should be an integer multiple of length(tSOA)
-catTriR  = 1/5;                    % catch trial rate of whole experiment
+catTriR  = 0;                      % catch trial rate of whole experiment
 checkPer = 15;                     % check performance each "checkPer" trials
 pretNum  = 90;                     % pretrial number of threshold stage
 stiD     = 0.1;                    % duration of each flash
@@ -412,13 +412,14 @@ for i = 1:pretNum
     fprintf('Pre-%s  #%.0f  %.4fs, "%s", judge-%.0f, tgAmp-%.3f, temporalErr-%.5fs\n',results.cueType{i}, results.ID(i), RT, KbName(find(keyCode,1)), results.judge(i), tgAmp,  sum(abs(tempSeq-fbTs)))
     results.tgAmp(i)=tgAmp;
     % quest update
-    % if results.tFreq(i)~=0 % if not catch trial, update quest
-    q = QuestUpdate(q, log10(tgAmp), results.judge(i));
+    if results.tTilt(i)~=0 % if not catch trial, update quest
+        q = QuestUpdate(q, log10(tgAmp), results.judge(i));
+    end
 end
 %% threshold stage results
 % visualization pretrials 
 figure;
-plot(results.tgAmp(1:i));
+plot(results.tgAmp(results.tgAmp>0));
 % update table
 SubjInfo = readtable('./Data/SubjInfo.csv','Format',formator);
 rowIdx = find(SubjInfo.subjID == subjID & SubjInfo.groupID == groupID,1);
@@ -442,7 +443,7 @@ if checkThreshStage
     Screen('TextSize',w,textSize);
     HideCursor(scr);
 end
-tgAmp = QuestQuantile(q); % get the final threshold amplitude
+tgAmp =10^ QuestQuantile(q); % get the final threshold amplitude
 
 % generate target frames for all formal trials
 cueTexture = genStimTex(w, winRect, ut, cueAmp, tgCenter, GaborSF, GaborWidth, 90);
