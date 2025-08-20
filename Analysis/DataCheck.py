@@ -6,6 +6,7 @@ import glob
 import matplotlib.pyplot as plt
 import YLutilpy
 import numpy as np
+from scipy.stats import ttest_ind
 YLutilpy.default_img_set()
 import matplotlib.pyplot as plt
 YLutilpy.default_img_set()
@@ -87,14 +88,20 @@ import numpy as np
 
 # 初始化设置
 YLutilpy.default_img_set()
-for subIDs in [[2]]:  # 被试编号
+# for subIDs in [[2,3,5,7,8,9,10,11]]:  # 被试编号
+for subIDs in [[2],[3],[4],[5],[6],[7],[8],[9],[10],[11],[2,3,4,5,6,7,8,9,10,11]]:  # 被试编号
+# for subIDs in [[4]]:  # 被试编号
     for prefix_types in [['A'],['V']]:  # 组编号
         groupID = 1
         all_dfs = []
 
         # 加载数据
-        for subID in subIDs:
-            for prefix_type in prefix_types:  # 可扩展到其他模态如'A'
+        # 初始化存储每个被试的平均值
+        rt_means = {}
+        acc_means = {}
+        ratio_means = {}
+        for prefix_type in prefix_types:  # 可扩展到其他模态如'A'
+            for subID in subIDs:
                 prefix = f"../Data/{prefix_type}_Result_G{groupID}_Sub{subID}_"
                 files = glob.glob(prefix + "*.csv")
                 if not files:
@@ -104,16 +111,28 @@ for subIDs in [[2]]:  # 被试编号
                 df_tmp = df_tmp[df_tmp['ID'] > 0]  # 保留有效ID
                 df_tmp['subID'] = subID
                 df_tmp['modality'] = prefix_type
+                # 去除RT 大于或小于2.5个标准差的行
+                df_tmp = df_tmp[(df_tmp['RT'] < df_tmp['RT'].mean() + 2.5 * df_tmp['RT'].std()) & 
+                                (df_tmp['RT'] > df_tmp['RT'].mean() - 2.5 * df_tmp['RT'].std()) |
+                                (df_tmp['RT'].isna())]  # 保留RT为NaN的行（错误反应）
                 all_dfs.append(df_tmp)
+
 
         if not all_dfs:
             raise FileNotFoundError("No data files found.")
 
         df = pd.concat(all_dfs, ignore_index=True)
 
-        # 分割tSOA为三组
-        df['tSOA_group'] = pd.qcut(df['tSOA'], 3, labels=['Short Invalid', 'Valid', 'Long Invalid'])
+        df['tSOA_group'] = df.groupby('cueType')['tSOA'].rank(method='dense').astype(int)    
+        # 将tSOA_group映射成字符标签
+        tsoa_group_mapping = {1: 'Short Invalid', 2: 'Valid', 3: 'Long Invalid'}
+        df['tSOA_group'] = df['tSOA_group'].map(tsoa_group_mapping)   
 
+        # 将数据转换为表格形式
+        table_RT = df[df['judge'] == 1].groupby(['subID', 'tSOA_group','cueType'])['RT'].mean().unstack(['tSOA_group','cueType'])
+        table_Acc = df.groupby(['subID', 'tSOA_group','cueType'])['judge'].mean().unstack(['tSOA_group','cueType'])
+        table_ratio = np.divide(table_RT,table_Acc)
+        
         # 计算正确反应的RT（仅统计judge==1的RT）
         correct_df = df[df['judge'] == 1]  # 筛选正确反应
         rt_grouped = correct_df.groupby(['tSOA_group', 'cueType'])['RT'].mean().reset_index()
@@ -140,8 +159,15 @@ for subIDs in [[2]]:  # 被试编号
         pivot_ratio = pivot_rt / pivot_acc  # RT与正确率比值
 
         # 绘制图表
-        fig, axes = plt.subplots(1, 3, figsize=(16, 5), dpi=120)
+        fig, axes = plt.subplots(1, 3, figsize=(16, 5), dpi=300)
+        
+        # 调整tSOA_group的顺序为 Short Invalid -> Valid -> Long Invalid
+        tsoa_order = ['Short Invalid', 'Valid', 'Long Invalid']
 
+        # 重新排序pivot表
+        pivot_rt = pivot_rt.reindex(tsoa_order)
+        pivot_acc = pivot_acc.reindex(tsoa_order)
+        pivot_ratio = pivot_ratio.reindex(tsoa_order)
         # RT子图
         pivot_rt.plot(kind='bar', ax=axes[0], color=[color_dict[c] for c in cue_order])
         axes[0].set_title('Mean Reaction Time (Correct Trials Only)')
@@ -163,6 +189,24 @@ for subIDs in [[2]]:  # 被试编号
         axes[2].set_ylabel('Ratio Value')
         axes[2].legend(title='Cue Type', loc='upper left', bbox_to_anchor=(1, 1))
 
+        # 如果subIDs长度大于1，计算逐个被试的平均值并进行配对t检验
+        if len(subIDs) > 1:
+                # 进行配对t检验
+            t_stat_rt, p_value_0 = ttest_rel(table_RT[('Valid', 'AU')], table_RT[('Valid', 'PP')])
+            t_stat_acc, p_value_1 = ttest_rel(table_Acc[('Valid', 'AU')], table_Acc[('Valid', 'PP')])
+            t_stat_ratio, p_value_2 = ttest_rel(table_ratio[('Valid', 'AU')], table_ratio[('Valid', 'PP')])    # 在柱状图上方标注P值
+            
+            for ax, p_value, label in zip(
+                [axes[0], axes[1], axes[2]],
+                [p_value_0, p_value_1, p_value_2],
+                ['RT vs ACC', 'RT vs ACC', 'RT vs Ratio']
+                ):
+                ax.text(
+                    0.5, 0.95, f'p={p_value:.3f}',
+                    ha='center', va='bottom', color='red', fontsize=10,
+                    transform=ax.transAxes
+                )
+
         # 设置整体的标题和布局
         plt.suptitle(f'Subjects: {subIDs}, Modality: {prefix_types}', fontsize=16)
         plt.tight_layout(rect=[0, 0, 1, 0.96])
@@ -171,17 +215,17 @@ for subIDs in [[2]]:  # 被试编号
         plt.show()
 
 # %% threshold stage analysis
-
-# 读取CSV文件，第一行作为表头
+# 
 import YLutilpy
 YLutilpy.default_img_set()
 import pandas as pd
 import numpy as np
 import glob 
+from scipy.stats import ttest_rel
 import matplotlib.pyplot as plt
 #取消网格线
 plt.rcParams['axes.grid'] = False
-subIDs = [1,2,3,4,5]
+subIDs = [1,2]
 groupIDs = [1]
 modalitys = ['A']  # 或 'V','A'，根据需要选择
 # 构建文件名前缀
@@ -189,7 +233,7 @@ for subID in subIDs:
     for groupID in groupIDs:
         for modality in modalitys:
     
-            prefix = f"../Data_0808/{modality}_Result_G{groupID}_Sub{subID}_"
+            prefix = f"../Data/{modality}_Result_G{groupID}_Sub{subID}_"
             files = glob.glob(prefix + "*.csv")
             if not files:
                 continue
@@ -198,6 +242,7 @@ for subID in subIDs:
             aveACC = df_tmp[df_tmp['ID'] > 0]['judge'].mean()
 
             df_tmp = df_tmp[df_tmp['ID'] <= 0]  # 保留ID<=0且judge==1的行
+            
             # 若存在tTilt列，删除tTilt等于0的行
             if 'tTilt' in df_tmp.columns:
                 df_tmp = df_tmp.dropna(subset=['tTilt'])
@@ -211,7 +256,7 @@ for subID in subIDs:
                 
 
             # 绘制tgAmp列的变化曲线
-            plt.figure(figsize=(10, 5))
+            plt.figure(figsize=(10, 5),dpi=300)
             plt.plot(df_tmp.index+1, df_tmp['tgAmp'], marker='o', linestyle='-', color='blue', label='tgAmp')
             
             # 标注转折点
@@ -270,12 +315,6 @@ for subID in subIDs:
             start_x = changeIdx[-4]
             end_x = df_tmp.index.values[-1] + 1
             plt.hlines(y=last_four_avg, xmin=start_x, xmax=end_x, color="#DC6300", linestyle='--', label=f'Last 4 Avg: {last_four_avg:.5f}', linewidth=3.5)            
-            
-            
-            
-            
-            
-            
             
             plt.xlabel('Trial Index')
             plt.ylabel('tgAmp')
