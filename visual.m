@@ -58,10 +58,10 @@ end
 deviceID = input(['Choose correct audio device and input its DeviceIndex ' ...
                   '\n(priority: ASIO > WASAPI > WDM-KS > DS > MNE): ']);
 sampRate = DeviceTable.DefaultSampleRate(DeviceTable.DeviceIndex==deviceID);
-triNum   = 60;                     % trial number of each schedule condition, should be an integer multiple of length(tSOA)
+triNum   = 90;                     % trial number of each schedule condition, should be an integer multiple of length(tSOA)
 catTriR  = 0;                      % catch trial rate of whole experiment
 checkPer = 15;                     % check performance each "checkPer" trials
-pretNum  = 90;                     % pretrial number of threshold stage
+pretNum  = 60;                     % pretrial number of threshold stage
 stiD     = 0.1;                    % duration of each flash
 ITIs     = [0.8 1.4];              % inter trial interval range (randomly selected in each trial)
 maxRT    = 2;                      % skip to next trial in 2s (facilitating post-target EEG analysis)
@@ -134,7 +134,7 @@ try
 %% staircase titrating task
 pahandle = PsychPortAudio('Open', deviceID, 1, 3, sampRate, 2);
 
-PsychPortAudio('Volume',pahandle,0.004);% 0.24 for 604-5 ; 0.025 for 604-4 with TANGMAI earphone
+PsychPortAudio('Volume',pahandle,0.007);% 0.24 for 604-5 ; 0.025 for 604-4 with TANGMAI earphone
 
 scr = max(Screen('Screens')); % 1; for 604-4
 [w,winRect] = Screen('OpenWindow',scr,127.5);
@@ -179,7 +179,7 @@ while 1
         Screen('Flip',w,t0+min(ITIs));   % central dot indicates that the trial is started, which disappeared after the min ITI
 
 %         tempSeq = GetSecs + rand*diff(ITIs)+min(ITIs) + [0,cumsum(cSOAs.AP2(ALTs(randi(size(ALTs,1)),:)))];
-        tempSeq = GetSecs + rand*diff(ITIs)+min(ITIs) + [0,cumsum(cSOAs.AP2)];
+        tempSeq = GetSecs + rand*diff(ITIs)+min(ITIs) + [0,cumsum(cSOAs.PP)];
         fbTs = zeros(1,length(tempSeq));
         for i = 1:length(tempSeq)
             Screen('Drawtexture', w, cueTexture)
@@ -187,7 +187,7 @@ while 1
             Screen('Flip', w, tempSeq(i)+stiD);
         end
         Screen('Drawtexture', w, tgTexture(inp))
-        tgTime = Screen('Flip', w, fbTs(i) + tSOAs.AU(randi(length(tSOAs.AU))));
+        tgTime = Screen('Flip', w, fbTs(i) + tSOAs.PP(randi(length(tSOAs.PP))));
         Screen('Flip', w, tgTime+stiD);
 
         disp('Temporal Error = ')
@@ -398,7 +398,7 @@ if scr==0
 else
     checkScreen = -1;
 end
-for i = pretNum + (1:4*triNum)
+for i = pretNum + (1:triNum)
     if mod(i-pretNum, triNum) == 1 && (i-pretNum)>1% each block rest 10s+
         oper = showInstruc_Rest(w,'Rest',instFolder,'space','backspace',10);
         checkScreen = checkScreen*oper; % if oper == -1, then change check/rest screen setting

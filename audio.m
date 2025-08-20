@@ -59,8 +59,8 @@ deviceID = input(['Choose correct audio device and input its DeviceIndex ' ...
 sampRate = DeviceTable.DefaultSampleRate(DeviceTable.DeviceIndex==deviceID);
 triNum   = 90;                     % trial number of each schedule condition, should be an integer multiple of length(tSOA)
 catTriR  = 0;                      % catch trial rate of whole experiment
-checkPer = 18;                     % check performance each "checkPer" trials
-pretNum  = 48;                     % pretrial number of threshold stage
+checkPer = 15;                     % check performance each "checkPer" trials
+pretNum  = 60;                     % pretrial number of threshold stage
 stiD     = 0.05;                   % duration of each beep
 ramp     = 0.005;                  % Fade in and fade out
 ITIs     = [0.8 1.4];              % inter trial interval range (randomly selected in each trial)
@@ -135,7 +135,7 @@ try
 pahandle = PsychPortAudio('Open', deviceID, 1, 3, sampRate, 2);
 
 % titrate white noise volume
-PsychPortAudio('Volume',pahandle,0.004);% 0.003 for 604-5 ; 0.004 for 604-4 with TANGMAI earphone
+PsychPortAudio('Volume',pahandle,0.007);% 0.003 for 604-5 ; 0.004 for 604-4 with TANGMAI earphone
 while 1
     WN = noiseAmp.*(2.*rand(1,2.*sampRate)-1);
     PsychPortAudio('FillBuffer', pahandle, [WN; WN]);
@@ -153,9 +153,9 @@ end
 while 1
     inp = input('Which target to play? (Enter 1/2 to choose, 0 to skip): ');
     if inp > 0
-        Tseq= cSOAs.AP2(ALTs(randi(size(ALTs,1)),:));
+        Tseq= cSOAs.PP;
         ITI = min(ITIs)+rand*diff(ITIs);
-        tSOA = tSOAs.AU(randi(length(tSOAs.AU)));
+        tSOA = tSOAs.PP(randi(length(tSOAs.PP)));
         stream = genStream(min(ITIs),ITI,Tseq,cFreq,tSOA,tFreq(inp),maxRT,stiD,sampRate,noiseAmp,cueAmp,mean([cueAmp,gstgAmp]),ramp);
         PsychPortAudio('FillBuffer', pahandle, [stream; stream]);
         t0 = PsychPortAudio('Start', pahandle, 1, 0, 1);
@@ -186,7 +186,7 @@ end
 % generate embedded stream
 % 'one up two down' staircase to get mixture ratio
 corrCount = 0;  % counting correct times for staircase procedure
-scr = max(Screen('Screens')); % 1; for 604-4
+scr = 1; % max(Screen('Screens')); % 1; for 604-4
 [w,winRect] = Screen('OpenWindow',scr,127);
 scWidth = Screen('DisplaySize',scr)/10; % in cm
 Screen('TextSize',w,textSize);
@@ -342,7 +342,7 @@ if scr==0
 else
     checkScreen = -1;
 end
-for i = pretNum + (1:4*triNum)
+for i = pretNum + (1:triNum)
     if mod(i-pretNum, triNum) == 1 && (i-pretNum)>1% each block rest 10s+
         oper = showInstruc_Rest(w,'Rest',instFolder,'space','backspace',10);
         checkScreen = checkScreen*oper; % if oper == -1, then change check/rest screen setting
