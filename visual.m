@@ -30,15 +30,6 @@ end
 [groupID, subjID, subjName, subjGender, subjAge, gstgAmp, seqID, formator] = InformationBox('V');
 headDist = input('Distance between eyes and screen (cm):');
 
-% block sequence should be randomized across subjects
-seqTypes = {[1 2 3 4],[2 1 3 4],[3 2 1 4],[4 2 3 1]
-            [1 2 4 3],[2 1 4 3],[3 2 4 1],[4 2 1 3]
-            [1 3 2 4],[2 3 1 4],[3 1 2 4],[4 3 2 1]
-            [1 3 4 2],[2 3 4 1],[3 1 4 2],[4 3 1 2]
-            [1 4 2 3],[2 4 1 3],[3 4 2 1],[4 1 2 3]
-            [1 4 3 2],[2 4 3 1],[3 4 1 2],[4 1 3 2]};
-cueTypes = {'PP','AP1','AP2','AU'};
-
 % stimulus schedule 
 % * first value indicates the SOA between 1st and 2nd cue
 % * if there are 7 interval value, the cue will show for 8 times
@@ -50,21 +41,10 @@ tSOAp    = [1   1   1];    % the probability distribution of each tSOA condition
 % 1. periodic predictable
 cSOAs.PP  = [1    1    1    1    1    1    1   ].*SOA;
 tSOAs.PP = [1/2 2/2 3/2].*SOA;
-% 2. aperiodic predictable (control the last beat)
-cSOAs.AP1 = [2.05 1.90 1.75 1.60 1.45 1.30 1.15].*SOA;
-tSOAs.AP1 = [1/2 2/2 3/2].*SOA;
-% 3. aperiodic predictable (control average time)
-cSOAs.AP2 = [1.45 1.30 1.15 1.00 0.85 0.70 0.55].*SOA;
-tSOAs.AP2 = 0.4.*[1/2 2/2 3/2].*SOA;
-% 4. aperiodic unpredictable (random)
-cSOAs.AU  = [nan nan nan nan nan nan nan];
-tSOAs.AU  = [1/2 2/2 3/2].*SOA;
+
 % Repeat tSOA according to the proportion specified by tSOAp
 % 1. Generate a tSOA sequence repeated according to the specified proportion
 tSOAs.PP  = repelem(tSOAs.PP,  tSOAp);
-tSOAs.AP1 = repelem(tSOAs.AP1, tSOAp);
-tSOAs.AP2 = repelem(tSOAs.AP2, tSOAp);
-tSOAs.AU  = repelem(tSOAs.AU,  tSOAp);
 
 % Set parameters
 InitializePsychSound;
@@ -78,7 +58,6 @@ end
 deviceID = input(['Choose correct audio device and input its DeviceIndex ' ...
                   '\n(priority: ASIO > WASAPI > WDM-KS > DS > MNE): ']);
 sampRate = DeviceTable.DefaultSampleRate(DeviceTable.DeviceIndex==deviceID);
-typeSeq  = seqTypes{seqID};        % sequence of schedule conditions, should be balanced across subjects  
 triNum   = 60;                     % trial number of each schedule condition, should be an integer multiple of length(tSOA)
 catTriR  = 0;                      % catch trial rate of whole experiment
 checkPer = 15;                     % check performance each "checkPer" trials
@@ -100,96 +79,57 @@ end
 ampStep  = gstgAmp/10;             % staircase step of target amplitude
 dynaStep = 0.8;                    % dynamicly decrease after each reverse (set to 1 to keep stepsize consistent)
 textSize = 30;
-% check parameters setting
-if triNum < 1 || mod(triNum*(1-catTriR), sum(tSOAp))*length(tTilt)~=0 
-    [~,catTriN] = rat(catTriR);
-    error('triNum*(1-catTriR)/2 must be divisible by both sum(tSOAp) * length(tTilt)! try %.0f', 2*lcm(catTriN,sum(tSOAp)*length(tTilt)));
-end
-if pretNum < 1 || mod(pretNum*(1-catTriR), sum(tSOAp))*length(tTilt)*length(cueTypes) ~=0 ...
-               || mod(pretNum*catTriR, length(tSOAs)) ~=0
-    [~,catTriN] = rat(catTriR);
-    error('pretNum*(1-catTriR) must be divisible by sum(tSOAp) * length(tTilt) * length(cueTypes), and pretNum*catTriR by length(cueTypes)! try %.0f', lcm(catTriN,sum(tSOAp)*length(tTilt)*length(cueTypes)));
-end
 
+%% trial-results table
 preCatNum = pretNum * catTriR; % catch trial number in pretrial stage
 preTruNum = pretNum-preCatNum;
 
 [~,block] = expRun.generateTrialList('ID',nan,'cueType', ...
-    nan,'t0',nan,'ITI',nan,'cSOA',{[]},'tSOA',1:length(tSOAs.AU),'tTilt', ...
+    {'PP'},'t0',nan,'ITI',nan,'cSOA',{[]},'tSOA',1:length(tSOAs.PP),'tTilt', ...
     1:length(tTilt),'tgAmp',nan,'tgTime',nan,'RT',nan, 'Key',{''},...
     'judge',0,'soaSeed',nan,'noiseSeed',nan);
 [~,catchs] = expRun.generateTrialList('ID',nan,'cueType', ...
-    nan,'t0',nan,'ITI',nan,'cSOA',{[]},'tSOA',1:length(tSOAs.AU),'tTilt', ...
+    {'PP'},'t0',nan,'ITI',nan,'cSOA',{[]},'tSOA',1:length(tSOAs.PP),'tTilt', ...
     0,'tgAmp',0,'tgTime',nan,'RT',nan, 'Key',{''},...
     'judge',nan,'soaSeed',nan,'noiseSeed',nan);
+
 % threshold stage
 repTimes = preTruNum / height(block);  
 repCTimes = preCatNum / height(catchs);
 preblock = [repmat(block, repTimes, 1); repmat(catchs, repCTimes, 1)];
 results = preblock(randperm(height(preblock)), :);  
-results.cueType = repmat({'AU'},pretNum,1);
-results.cSOA = repmat({cSOAs.AU},pretNum,1);
+results.cSOA = repmat({cSOAs.PP},pretNum,1);
 for i = 1:pretNum
-    results.tSOA(i) = tSOAs.AU(results.tSOA(i));
+    results.tSOA(i) = tSOAs.PP(results.tSOA(i));
 end
 
 % formal task
 
 [~,block] = expRun.generateTrialList('ID',nan,'cueType', ...
-    nan,'t0',nan,'ITI',nan,'cSOA',{[]},'tSOA',tSOAs.AU,'tTilt', ...
+    {'PP'},'t0',nan,'ITI',nan,'cSOA',{[]},'tSOA',tSOAs.PP,'tTilt', ...
     1:length(tTilt),'tgAmp',nan,'tgTime',nan,'RT',nan, 'Key',{''},...
     'judge',nan,'soaSeed',nan,'noiseSeed',nan);
 [~,catchs] = expRun.generateTrialList('ID',nan,'cueType', ...
-    nan,'t0',nan,'ITI',nan,'cSOA',{[]},'tSOA',1:length(tSOAs.AU),'tTilt', ...
+    {'PP'},'t0',nan,'ITI',nan,'cSOA',{[]},'tSOA',1:length(tSOAs.PP),'tTilt', ...
     0,'tgAmp',0,'tgTime',nan,'RT',nan, 'Key',{''},...
     'judge',nan,'soaSeed',nan,'noiseSeed',nan);
-triNum = triNum / 2; % split to 2 part 
 CatNum = triNum * catTriR;
 TruNum = triNum - CatNum;
 repTimes = TruNum / height(block);  
-block = repmat(block, repTimes, 1);  
+block = repmat(block, repTimes, 1);   
 % concetnate catch trials
 catBlock = repmat(catchs, CatNum / height(catchs), 1);
 catBlock.tTilt(:) = 0;
 catBlock.tgAmp(:) = 0;
 block = [block; catBlock];
-for type = [cueTypes, cueTypes]
-    newblock = block;
-    newblock.cueType = repmat(type,triNum,1);
-    newblock.cSOA = repmat({cSOAs.(type{1})},triNum,1);
-    newblock.tSOA = repmat(transpose(tSOAs.(type{1})),triNum/length(tSOAs.(type{1})),1);
-    results = [results; newblock(randperm(height(block)), :)];
-end
-triNum = triNum * 2;
+newblock = block;
+newblock.cSOA = repmat({cSOAs.PP},triNum,1);
+newblock.tSOA = repmat(transpose(tSOAs.PP),triNum/length(tSOAs.PP),1);
+results = [results; newblock(randperm(height(block)), :)];
 results.ITI = rand(height(results),1)*diff(ITIs) + ITIs(1);
 results.soaSeed = randi(2^32-1,height(results),1);
 results.noiseSeed = randi(2^32-1,height(results),1);
-results.ID = transpose(-pretNum+1:triNum*4);
-% get AU cSOA by permutate AP2
-% permutation way selected from specific subset
-% Exclude sequences with three consecutive increasing/decreasing values
-% Exclude sequences with three interval in arithmetic progression
-% Generate all permutations of 1-7
-P = perms(1:7);
-% Caculate the diff. metrix of P
-first = diff(P,[],2);
-% Mark local arithmetic sequences
-arithm = ~diff(first,[],2);
-% Consecutive increases/decreases
-second = diff(sign(first),[],2);
-% Three consecutive monotonic changes
-% Note: Consecutive 2/-2 never occur, so consecutive zeros must be zero differences
-third = diff(second,[],2);
-% All eligible permutations (reject rows with any arithmetic sequence OR any three consecutive monotonic changes):
-idx = ~(any(~third,2) | any(arithm,2));
-ALTs = P(idx,:);
-% For each trial, randomly select one permutation sequence
-AUidx = strcmp(results.cueType,'AU');
-auSeqs = ALTs(randi(size(ALTs,1),sum(AUidx),1),:);
-for i = transpose(find(AUidx))
-    results.cSOA(i) = {cSOAs.AP2(ALTs(randi(size(ALTs,1)),:))};
-end
-
+results.ID = transpose(-pretNum+1:triNum);
 try
 %% staircase titrating task
 pahandle = PsychPortAudio('Open', deviceID, 1, 3, sampRate, 2);
