@@ -1,84 +1,111 @@
 
-
 # %% 
 import pandas as pd
 import glob
 import matplotlib.pyplot as plt
 import YLutilpy
 import numpy as np
-from scipy.stats import ttest_ind
+from scipy.stats import ttest_rel
+
 YLutilpy.default_img_set()
-import matplotlib.pyplot as plt
-YLutilpy.default_img_set()
 
-subIDs = [1,2]  # 这里填你要分析的被试编号
-groupID = 1
+# 支持多个subID和两种类型（V和A）的文件读取与合并[1],[2],[3],[4],[5],
+for subIDs in [[2,3,4,5,6,7,8,9,10,11]]:  # 被试编号
+# for subIDs in [[4]]:  # 被试编号
+    for prefix_types in [['A'],['V']]:  # 组编号
+        groupID = 1
+        all_dfs = []
 
-all_dfs = []
-for subID in subIDs:
-    for prefix_type in ['V','A']:
-        prefix = f"../Data/{prefix_type}_Result_G{groupID}_Sub{subID}_"
-        files = glob.glob(prefix + "*.csv")
-        if not files:
-            continue
-        filename = files[0]
-        df_tmp = pd.read_csv(filename)
-        df_tmp = df_tmp[df_tmp['ID'] > 0]
-        df_tmp['subID'] = subID
-        df_tmp['modality'] = prefix_type
-        all_dfs.append(df_tmp)
+        # 加载数据
+        # 初始化存储每个被试的平均值
+        rt_means = {}
+        acc_means = {}
+        ratio_means = {}
+        for prefix_type in prefix_types:  # 可扩展到其他模态如'A'
+            for subID in subIDs:
+                prefix = f"../Data_0813/{prefix_type}_Result_G{groupID}_Sub{subID}_"
+                files = glob.glob(prefix + "*.csv")
+                if not files:
+                    continue
+                filename = files[0]
+                df_tmp = pd.read_csv(filename)
+                df_tmp = df_tmp[(df_tmp['ID'] > 0 )* df_tmp['cueType']=='PP']  # 保留有效ID
+                df_tmp['subID'] = subID
+                df_tmp['modality'] = prefix_type
+                # 去除RT 大于或小于2.5个标准差的行
+                df_tmp = df_tmp[(df_tmp['RT'] < df_tmp['RT'].mean() + 2.5 * df_tmp['RT'].std()) & 
+                                (df_tmp['RT'] > df_tmp['RT'].mean() - 2.5 * df_tmp['RT'].std()) |
+                                (df_tmp['RT'].isna())]  # 保留RT为NaN的行（错误反应）
+                all_dfs.append(df_tmp)
+        if not all_dfs:
+            raise FileNotFoundError("No data files found.")
 
-if not all_dfs:
-    raise FileNotFoundError("No data files found for any subject or modality.")
+        df = pd.concat(all_dfs, ignore_index=True)
 
-df = pd.concat(all_dfs, ignore_index=True)
+        df['tSOA_group'] = df.groupby('cueType')['tSOA'].rank(method='dense').astype(int)    
+        # 将tSOA_group映射成字符标签
+        tsoa_group_mapping = {1: 'Short Invalid', 2: 'Valid', 3: 'Long Invalid'}
+        df['tSOA_group'] = df['tSOA_group'].map(tsoa_group_mapping)   
 
-# %% 浓缩版分析
-# 将tSOA分为小、中、大三组
-tsoa_bins = pd.qcut(df['tSOA'], 3, labels=['Short Invalid', 'Valid', 'Long Invalid'])
-df['tSOA_group'] = tsoa_bins
+        # 将数据转换为表格形式
+        table_RT = df[df['judge'] == 1].groupby(['subID', 'tSOA_group'])['RT'].mean().unstack(['tSOA_group'])
+        table_Acc = df.groupby(['subID', 'tSOA_group'])['judge'].mean().unstack(['tSOA_group'])
+        table_ratio = np.divide(table_RT,table_Acc)
 
-# 按cueType和tSOA_group分组，计算均值
-grouped = df.groupby(['tSOA_group', 'cueType'])[['RT', 'judge']].mean().reset_index()
+        # 绘柱状图
+        fig, axes = plt.subplots(1, 3, figsize=(16, 5), dpi=300)
+        # 调整tSOA_group的顺序为 Short Invalid -> Valid -> Long Invalid
+        tsoa_order = ['Short Invalid', 'Valid', 'Long Invalid']
+        # 重新排序table column
+        table_RT = table_RT.reindex(tsoa_order, axis=1)
+        table_Acc = table_Acc.reindex(tsoa_order, axis=1)
+        # 对每个表的所有行取平均值
+        table_RT_mean = table_RT.mean(axis=0)
+        table_Acc_mean = table_Acc.mean(axis=0)
+        table_ratio_mean = table_ratio.mean(axis=0)
 
-# 透视表用于绘图
-pivot_rt = grouped.pivot(index='tSOA_group', columns='cueType', values='RT')
-pivot_judge = grouped.pivot(index='tSOA_group', columns='cueType', values='judge')
+        # 将平均值转换为DataFrame以便绘图
+        table_RT_mean = pd.DataFrame(table_RT_mean).T
+        table_Acc_mean = pd.DataFrame(table_Acc_mean).T
+        table_ratio_mean = pd.DataFrame(table_ratio_mean).T
+        # 绘制RT子图
+        table_RT_mean.T.plot(kind='bar', ax=axes[0])
+        axes[0].set_title('Mean Reaction Time (Correct Trials Only)')
+        axes[0].set_xlabel('tSOA Group')
+        axes[0].set_ylabel('RT (s)')
+        axes[0].get_legend().remove()
 
-# cueType顺序调整，PP最左
-cue_order_new = [ 'AP2','PP', 'AP1', 'AU']
-color_dict = {
-    'AP1': '#FFE699',
-    'AP2': '#FFD966',
-    'PP':  '#42A62A',
-    'AU':  "#EC7025",
-}
+        # 绘制ACC子图
+        table_Acc_mean.T.plot(kind='bar', ax=axes[1])
+        axes[1].set_title('Accuracy (All Trials)')
+        axes[1].set_xlabel('tSOA Group')
+        axes[1].set_ylabel('Accuracy')
+        axes[1].get_legend().remove()
 
-pivot_rt_new = pivot_rt[cue_order_new]
-pivot_judge_new = pivot_judge[cue_order_new]
-pivot_ratio_new = pivot_rt_new / pivot_judge_new
+        # 绘制比值子图
+        table_ratio_mean.T.plot(kind='bar', ax=axes[2])
+        axes[2].set_title('RT/ACC Ratio')
+        axes[2].set_xlabel('tSOA Group')
+        axes[2].set_ylabel('Ratio Value')
+        axes[2].legend(title='Cue Type', loc='upper left', bbox_to_anchor=(1, 1))
+        if len(subIDs) > 1:
+            # 进行单侧配对t检验
+            t_stat_rt, p_value_0 = ttest_rel(table_RT['Valid'], (table_RT['Short Invalid'] + table_RT['Long Invalid']) / 2, alternative='less')
+            t_stat_acc, p_value_1 = ttest_rel(table_Acc['Valid'], (table_Acc['Short Invalid'] + table_Acc['Long Invalid']) / 2, alternative='greater')
+            t_stat_ratio, p_value_2 = ttest_rel(table_ratio['Valid'], (table_ratio['Short Invalid'] + table_ratio['Long Invalid']) / 2, alternative='less')
 
-fig, axes = plt.subplots(1, 3, figsize=(12, 5), dpi=300)
-pivot_rt_new.plot(kind='bar', ax=axes[0], color=[color_dict.get(c, 'gray') for c in cue_order_new])
-axes[0].set_xlabel('tSOA')
-axes[0].set_ylabel('RT')
-axes[0].set_title('Mean RT by cueType and tSOA')
+            # 在相应子图标题下方显示p值
+            axes[0].text(0.5, 0.95, f'p={p_value_0:.3f}', ha='center', va='bottom', color='red', fontsize=10, transform=axes[0].transAxes)
+            axes[1].text(0.5, 0.95, f'p={p_value_1:.3f}', ha='center', va='bottom', color='red', fontsize=10, transform=axes[1].transAxes)
+            axes[2].text(0.5, 0.95, f'p={p_value_2:.3f}', ha='center', va='bottom', color='red', fontsize=10, transform=axes[2].transAxes)
 
-pivot_judge_new.plot(kind='bar', ax=axes[1], color=[color_dict.get(c, 'gray') for c in cue_order_new])
-axes[1].set_xlabel('tSOA')
-axes[1].set_ylabel('judge')
-axes[1].set_title('ACC by cueType and tSOA')
+        # 设置整体的标题和布局
+        plt.suptitle(f'Subjects: {subIDs}, Modality: {prefix_types}', fontsize=16)
+        plt.tight_layout(rect=[0, 0, 1, 0.96])
 
-pivot_ratio_new.plot(kind='bar', ax=axes[2], color=[color_dict.get(c, 'gray') for c in cue_order_new])
-axes[2].set_xlabel('tSOA')
-axes[2].set_ylabel('RT / ACC')
-axes[2].set_title('RT/ACC Ratio by cueType and tSOA')
-axes[2].legend(title='cueType',loc='upper left', bbox_to_anchor=(1, 1))
-axes[0].get_legend().remove()
-axes[1].get_legend().remove()
-
-plt.tight_layout()
-plt.show()
+        # plt.tight_layout()
+        plt.show()
+            
 # %% only correct RT
 import pandas as pd
 import glob
@@ -213,6 +240,86 @@ for subIDs in [[2],[3],[4],[5],[6],[7],[8],[9],[10],[11],[2,3,4,5,6,7,8,9,10,11]
 
         # plt.tight_layout()
         plt.show()
+
+# %% 
+import pandas as pd
+import glob
+import matplotlib.pyplot as plt
+import YLutilpy
+import numpy as np
+from scipy.stats import ttest_ind
+YLutilpy.default_img_set()
+import matplotlib.pyplot as plt
+YLutilpy.default_img_set()
+
+subIDs = [1,2]  # 这里填你要分析的被试编号
+groupID = 1
+
+all_dfs = []
+for subID in subIDs:
+    for prefix_type in ['V','A']:
+        prefix = f"../Data/{prefix_type}_Result_G{groupID}_Sub{subID}_"
+        files = glob.glob(prefix + "*.csv")
+        if not files:
+            continue
+        filename = files[0]
+        df_tmp = pd.read_csv(filename)
+        df_tmp = df_tmp[df_tmp['ID'] > 0]
+        df_tmp['subID'] = subID
+        df_tmp['modality'] = prefix_type
+        all_dfs.append(df_tmp)
+
+if not all_dfs:
+    raise FileNotFoundError("No data files found for any subject or modality.")
+
+df = pd.concat(all_dfs, ignore_index=True)
+
+# %% 浓缩版分析
+# 将tSOA分为小、中、大三组
+tsoa_bins = pd.qcut(df['tSOA'], 3, labels=['Short Invalid', 'Valid', 'Long Invalid'])
+df['tSOA_group'] = tsoa_bins
+
+# 按cueType和tSOA_group分组，计算均值
+grouped = df.groupby(['tSOA_group', 'cueType'])[['RT', 'judge']].mean().reset_index()
+
+# 透视表用于绘图
+pivot_rt = grouped.pivot(index='tSOA_group', columns='cueType', values='RT')
+pivot_judge = grouped.pivot(index='tSOA_group', columns='cueType', values='judge')
+
+# cueType顺序调整，PP最左
+cue_order_new = [ 'AP2','PP', 'AP1', 'AU']
+color_dict = {
+    'AP1': '#FFE699',
+    'AP2': '#FFD966',
+    'PP':  '#42A62A',
+    'AU':  "#EC7025",
+}
+
+pivot_rt_new = pivot_rt[cue_order_new]
+pivot_judge_new = pivot_judge[cue_order_new]
+pivot_ratio_new = pivot_rt_new / pivot_judge_new
+
+fig, axes = plt.subplots(1, 3, figsize=(12, 5), dpi=300)
+pivot_rt_new.plot(kind='bar', ax=axes[0], color=[color_dict.get(c, 'gray') for c in cue_order_new])
+axes[0].set_xlabel('tSOA')
+axes[0].set_ylabel('RT')
+axes[0].set_title('Mean RT by cueType and tSOA')
+
+pivot_judge_new.plot(kind='bar', ax=axes[1], color=[color_dict.get(c, 'gray') for c in cue_order_new])
+axes[1].set_xlabel('tSOA')
+axes[1].set_ylabel('judge')
+axes[1].set_title('ACC by cueType and tSOA')
+
+pivot_ratio_new.plot(kind='bar', ax=axes[2], color=[color_dict.get(c, 'gray') for c in cue_order_new])
+axes[2].set_xlabel('tSOA')
+axes[2].set_ylabel('RT / ACC')
+axes[2].set_title('RT/ACC Ratio by cueType and tSOA')
+axes[2].legend(title='cueType',loc='upper left', bbox_to_anchor=(1, 1))
+axes[0].get_legend().remove()
+axes[1].get_legend().remove()
+
+plt.tight_layout()
+plt.show()
 
 # %% threshold stage analysis
 # 
