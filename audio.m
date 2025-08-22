@@ -5,7 +5,7 @@ KbName('UnifyKeyNames');
 Screen('Preference', 'SkipSyncTests', 1);
 % PsychDebugWindowConfiguration;
 % DisableKeysForKbCheck(KbName('f22'));
-checkThreshStage = true; % whether to quit the PTB screen to check the threshold stage performance before the formal task
+checkThreshStage = false; % whether to quit the PTB screen to check the threshold stage performance before the formal task
 
 if ~exist('./Data', 'dir')
     mkdir('./Data');
@@ -22,13 +22,21 @@ instFolder = './Instructions';
 WaitSecs(0.2);
 [keyIsDown, ~, keyCode] = KbCheck;
 if sum(keyCode) ~= 0    % make sure only one key is pressed
-    error('Check keyboard hardware!!! A certain key is pressed: %s',KbName(keyCode))
+    error('Check keyboard hardware!!! A certain key is pressed: %s/nRun ```DisableKeysForKbCheck(KbName("%s"))``` to fix that.',KbName(keyCode),KbName(keyCode))
 end
 
 % get SubjInfo
 [groupID, subjID, subjName, subjGender, subjAge, gstgAmp, seqID, formator] = InformationBox('A');
 headDist = input('Distance between eyes and screen (cm):');
 
+% block sequence should be randomized across subjects
+seqTypes = {[1 2 3 4],[2 1 3 4],[3 2 1 4],[4 2 3 1]
+            [1 2 4 3],[2 1 4 3],[3 2 4 1],[4 2 1 3]
+            [1 3 2 4],[2 3 1 4],[3 1 2 4],[4 3 2 1]
+            [1 3 4 2],[2 3 4 1],[3 1 4 2],[4 3 1 2]
+            [1 4 2 3],[2 4 1 3],[3 4 2 1],[4 1 2 3]
+            [1 4 3 2],[2 4 3 1],[3 4 1 2],[4 1 3 2]};
+cueTypes = {'PPl','PPs','AUl','AUs'};
 
 % stimulus schedule 
 % * first value indicates the SOA between 1st and 2nd cue
@@ -36,14 +44,26 @@ headDist = input('Distance between eyes and screen (cm):');
 % * if a certain interval value is NaN, this interval will be randomly
 %   drawn from a uniform distribution defined by rdSOA
 SOA      = 0.5;                    % standard SOA in Periodic Predictable condition
-rdSOA    = [0.4 0.9];              % the range of the random SOA in AP3 and AU condition
-tSOAp    = [1   1   1];    % the probability distribution of each tSOA condition (still unused)
+rdSOA    = [0.25 0.75];              % the range of the random SOA in AP3 and AU condition
+tSOAp    = [1   1  ];    % the probability distribution of each tSOA condition 
 % 1. periodic predictable
-cSOAs.PP  = [1    1    1    1    1    1    1   ].*SOA;
-tSOAs.PP = [1/2 2/2 3/2].*SOA;
+cSOAs.PPl  = [1    1    1    1    1    1    1   ].*SOA;
+tSOAs.PPl = [1/2 2/2].*SOA;
+% 2. aperiodic predictable (control the last beat)
+cSOAs.PPs = [0.5  0.5  0.5  0.5  0.5  0.5  0.5 ].*SOA;
+tSOAs.PPs = [1/2 2/2].*SOA;
+% 3. aperiodic predictable (control average time)
+cSOAs.AUl = [nan nan nan nan nan nan nan];
+tSOAs.AUl = [1/2 2/2].*SOA;
+% 4. aperiodic unpredictable (random)
+cSOAs.AUs  = [nan nan nan nan nan nan nan];
+tSOAs.AUs  = [1/2 2/2].*SOA;
 % Repeat tSOA according to the proportion specified by tSOAp
 % 1. Generate a tSOA sequence repeated according to the specified proportion
-tSOAs.PP  = repelem(tSOAs.PP,  tSOAp);
+tSOAs.PPl = repelem(tSOAs.PPl,  tSOAp);
+tSOAs.PPs = repelem(tSOAs.PPs, tSOAp);
+tSOAs.AUl = repelem(tSOAs.AUl, tSOAp);
+tSOAs.AUs = repelem(tSOAs.AUs,  tSOAp);
 
 % Set parameters
 InitializePsychSound;
@@ -57,10 +77,11 @@ end
 deviceID = input(['Choose correct audio device and input its DeviceIndex ' ...
                   '\n(priority: ASIO > WASAPI > WDM-KS > DS > MNE): ']);
 sampRate = DeviceTable.DefaultSampleRate(DeviceTable.DeviceIndex==deviceID);
-triNum   = 90;                     % trial number of each schedule condition, should be an integer multiple of length(tSOA)
+typeSeq  = seqTypes{seqID};        % sequence of schedule conditions, should be balanced across subjects  
+triNum   = 40;                     % trial number of each schedule condition, should be an integer multiple of length(tSOA)
 catTriR  = 0;                      % catch trial rate of whole experiment
-checkPer = 15;                     % check performance each "checkPer" trials
-pretNum  = 60;                     % pretrial number of threshold stage
+checkPer = 20;                     % check performance each "checkPer" trials
+pretNum  = 80;                     % pretrial number of threshold stage
 stiD     = 0.05;                   % duration of each beep
 ramp     = 0.005;                  % Fade in and fade out
 ITIs     = [0.8 1.4];              % inter trial interval range (randomly selected in each trial)
@@ -79,39 +100,49 @@ ampStep  = gstgAmp/10;             % staircase step of target amplitude
 dynaStep = 0.8;                    % dynamicly decrease after each reverse (set to 1 to keep stepsize consistent)
 textSize = 30;
 
+% check parameters setting
+if triNum < 1 || mod(triNum*(1-catTriR), sum(tSOAp))*length(tFreq)~=0 
+    [~,catTriN] = rat(catTriR);
+    error('triNum*(1-catTriR)/2 must be divisible by both sum(tSOAp) * length(tFreq)! try %.0f', 2*lcm(catTriN,sum(tSOAp)*length(tFreq)));
+end
+if pretNum < 1 || mod(pretNum*(1-catTriR), sum(tSOAp))*length(tFreq)*length(cueTypes) ~=0 ...
+               || mod(pretNum*catTriR, length(tSOAs)) ~=0
+    [~,catTriN] = rat(catTriR);
+    error('pretNum*(1-catTriR) must be divisible by sum(tSOAp) * length(tFreq) * length(cueTypes), and pretNum*catTriR by length(cueTypes)! try %.0f', lcm(catTriN,sum(tSOAp)*length(tFreq)*length(cueTypes)));
+end
+
 %% trial-results table
 preCatNum = pretNum * catTriR; % catch trial number in pretrial stage
 preTruNum = pretNum-preCatNum;
 
 [~,block] = expRun.generateTrialList('ID',nan,'cueType', ...
-    {'PP'},'t0',nan,'ITI',nan,'cSOA',{[]},'tSOA',1:length(tSOAs.PP),'tFreq', ...
+    {'AUl','AUs'},'t0',nan,'ITI',nan,'cSOA',{[]},'tSOA',1:sum(tSOAp),'tFreq', ...
     1:length(tFreq),'tgAmp',nan,'tgTime',nan,'RT',nan, 'Key',{''},...
     'judge',0,'soaSeed',nan,'noiseSeed',nan);
 [~,catchs] = expRun.generateTrialList('ID',nan,'cueType', ...
-    {'PP'},'t0',nan,'ITI',nan,'cSOA',{[]},'tSOA',1:length(tSOAs.PP),'tFreq', ...
+    nan,'t0',nan,'ITI',nan,'cSOA',{[]},'tSOA',1:sum(tSOAp),'tFreq', ...
     0,'tgAmp',0,'tgTime',nan,'RT',nan, 'Key',{''},...
     'judge',nan,'soaSeed',nan,'noiseSeed',nan);
-
 % threshold stage
 repTimes = preTruNum / height(block);  
 repCTimes = preCatNum / height(catchs);
 preblock = [repmat(block, repTimes, 1); repmat(catchs, repCTimes, 1)];
 results = preblock(randperm(height(preblock)), :);  
-results.cSOA = repmat({cSOAs.PP},pretNum,1);
 for i = 1:pretNum
-    results.tSOA(i) = tSOAs.PP(results.tSOA(i));
+    results.tSOA(i) = tSOAs.(results.cueType{i})(results.tSOA(i));
 end
 
 % formal task
 
 [~,block] = expRun.generateTrialList('ID',nan,'cueType', ...
-    {'PP'},'t0',nan,'ITI',nan,'cSOA',{[]},'tSOA',tSOAs.PP,'tFreq', ...
+    nan,'t0',nan,'ITI',nan,'cSOA',{[]},'tSOA',1:sum(tSOAp),'tFreq', ...
     1:length(tFreq),'tgAmp',nan,'tgTime',nan,'RT',nan, 'Key',{''},...
     'judge',nan,'soaSeed',nan,'noiseSeed',nan);
 [~,catchs] = expRun.generateTrialList('ID',nan,'cueType', ...
-    {'PP'},'t0',nan,'ITI',nan,'cSOA',{[]},'tSOA',1:length(tSOAs.PP),'tFreq', ...
+    nan,'t0',nan,'ITI',nan,'cSOA',{[]},'tSOA',1:sum(tSOAp),'tFreq', ...
     0,'tgAmp',0,'tgTime',nan,'RT',nan, 'Key',{''},...
     'judge',nan,'soaSeed',nan,'noiseSeed',nan);
+triNum = triNum / 2; % split to 2 part 
 CatNum = triNum * catTriR;
 TruNum = triNum - CatNum;
 repTimes = TruNum / height(block);  
@@ -121,21 +152,61 @@ catBlock = repmat(catchs, CatNum / height(catchs), 1);
 catBlock.tFreq(:) = 0;
 catBlock.tgAmp(:) = 0;
 block = [block; catBlock];
-newblock = block;
-newblock.cSOA = repmat({cSOAs.PP},triNum,1);
-newblock.tSOA = repmat(transpose(tSOAs.PP),triNum/length(tSOAs.PP),1);
-results = [results; newblock(randperm(height(block)), :)];
+for type = [cueTypes, cueTypes]
+    newblock = block;
+    newblock.cueType = repmat(type,triNum,1);
+    newblock.cSOA = repmat({cSOAs.(type{1})},triNum,1);
+    newblock.tSOA = repmat(transpose(tSOAs.(type{1})),triNum/length(tSOAs.(type{1})),1);
+    results = [results; newblock(randperm(height(block)), :)];
+end
+triNum = triNum * 2;
 results.ITI = rand(height(results),1)*diff(ITIs) + ITIs(1);
 results.soaSeed = randi(2^32-1,height(results),1);
 results.noiseSeed = randi(2^32-1,height(results),1);
-results.ID = transpose(-pretNum+1:triNum);
+results.ID = transpose(-pretNum+1:triNum*4);
+% get AU cSOA by permutate AP2
+% permutation way selected from specific subset
+% Exclude sequences with three consecutive increasing/decreasing values
+% Exclude sequences with three interval in arithmetic progression
+% Generate all permutations of 1-7
+% P = perms(1:7);
+% % Caculate the diff. metrix of P
+% first = diff(P,[],2);
+% % Mark local arithmetic sequences
+% arithm = ~diff(first,[],2);
+% % Consecutive increases/decreases
+% second = diff(sign(first),[],2);
+% % Three consecutive monotonic changes
+% % Note: Consecutive 2/-2 never occur, so consecutive zeros must be zero differences
+% third = diff(second,[],2);
+% % All eligible permutations (reject rows with any arithmetic sequence OR any three consecutive monotonic changes):
+% idx = ~(any(~third,2) | any(arithm,2));
+% ALTs = P(idx,:);
+% % For each trial, randomly select one permutation sequence
+% AUidx = strcmp(results.cueType,'AU');
+% auSeqs = ALTs(randi(size(ALTs,1),sum(AUidx),1),:);
+% for i = transpose(find(AUidx))
+%     results.cSOA(i) = {cSOAs.AP2(ALTs(randi(size(ALTs,1)),:))};
+% end
+
+% AUl, fill nan with random value in rdSOA range
+AUlidx = strcmp(results.cueType,'AUl');
+for i = transpose(find(AUlidx))
+    results.cSOA{i} = rand(1, length(cSOAs.AUl)) * diff(rdSOA) + rdSOA(1);
+end
+% AUs, fill nan with half random value in rdSOA range
+AUsidx = strcmp(results.cueType,'AUs');
+for i = transpose(find(AUsidx))
+    results.cSOA{i} = (rand(1, length(cSOAs.AUs)) * diff(rdSOA) + rdSOA(1))/2;
+end
+
 
 try
 %% instruction and threshold stage by quest
 pahandle = PsychPortAudio('Open', deviceID, 1, 3, sampRate, 2);
 
 % titrate white noise volume
-PsychPortAudio('Volume',pahandle,0.007);% 0.003 for 604-5 ; 0.004 for 604-4 with TANGMAI earphone
+PsychPortAudio('Volume',pahandle,0.004);% 0.003 for 604-5 ; 0.004 for 604-4 with TANGMAI earphone
 while 1
     WN = noiseAmp.*(2.*rand(1,2.*sampRate)-1);
     PsychPortAudio('FillBuffer', pahandle, [WN; WN]);
@@ -149,13 +220,67 @@ while 1
     end
 end
 
+% play example stimulus
+% scr = max(Screen('Screens')); % 1; for 604-4
+scr = 1; %for 604-4/3
+[w,winRect] = Screen('OpenWindow',scr,127);
+scWidth = Screen('DisplaySize',scr)/10; % in cm
+Screen('TextSize',w,textSize);
+ut = UT(scWidth,winRect(3),headDist,false);
+dotpRad = ut.deg2pix(fixSize)/2; % radius of fixation dot in pixcel
+dotRect = [-dotpRad,-dotpRad,dotpRad,dotpRad]+[winRect(3),winRect(4),winRect(3),winRect(4)]./2;
+
+% overall instruction page (press space to play example stimulus, press backspace to skip)
+oper0 = showInstruc(w, 'Env_A', instFolder, 'space', 'BackSpace', 1);
+oper = oper0;
+% example of target corresponding the up key
+while oper == 1
+    Tseq= rand(1, length(cSOAs.AUl)) * diff(rdSOA) + rdSOA(1); % randomize the target sequence
+    drawCentImg(w, [instFolder,'/Exa_Up_A.png'], 'fit');
+    t0 = Screen('Flip', w);
+    WaitSecs(0.5);
+    ITI = min(ITIs)+rand*diff(ITIs);
+    tSOA = tSOAs.PPl(randi(length(tSOAs.PPl)));
+    stream = genStream(min(ITIs),ITI,Tseq,cFreq,tSOA,tFreq(strcmp('UpArrow', keys)),maxRT,stiD,sampRate,noiseAmp,cueAmp,mean([cueAmp,gstgAmp]),ramp);
+    PsychPortAudio('FillBuffer', pahandle, [stream; stream]);
+    t0 = PsychPortAudio('Start', pahandle, 1, 0, 1);
+    tgTime = t0 + ITI + sum(Tseq)+tSOA;
+    WaitSecs('UntilTime',tgTime);
+    % press backspace to replay, press the up key to continue
+    oper = showInstruc(w, 'Check_Up_A', instFolder, 'BackSpace', 'UpArrow', 0);
+    PsychPortAudio('Stop', pahandle,1);
+end
+oper=oper0;
+% example of target corresponding the down key
+while oper == 1
+    Tseq= rand(1, length(cSOAs.AUl)) * diff(rdSOA) + rdSOA(1); % randomize the target sequence
+    drawCentImg(w, [instFolder,'/Exa_Down_A.png'], 'fit');
+    t0 = Screen('Flip', w);
+    WaitSecs(0.5);
+    ITI = min(ITIs)+rand*diff(ITIs);
+    tSOA = tSOAs.PPl(randi(length(tSOAs.PPl)));
+    stream = genStream(min(ITIs),ITI,Tseq,cFreq,tSOA,tFreq(strcmp('DownArrow', keys)),maxRT,stiD,sampRate,noiseAmp,cueAmp,mean([cueAmp,gstgAmp]),ramp);
+    PsychPortAudio('FillBuffer', pahandle, [stream; stream]);
+    t0 = PsychPortAudio('Start', pahandle, 1, 0, 1);
+    tgTime = t0 + ITI + sum(Tseq)+tSOA;
+    WaitSecs('UntilTime',tgTime);
+    % press backspace to replay, press the down key to continue
+    oper = showInstruc(w, 'Check_Down_A', instFolder, 'BackSpace', 'DownArrow', 0);
+    PsychPortAudio('Stop', pahandle,1);
+end
+
+
+
 % play example stimulus, then check
 while 1
-    inp = input('Which target to play? (Enter 1/2 to choose, 0 to skip): ');
+    % press backspace to end
+    inp = showInstruc_Inp(w, 'WaitExper', instFolder, {'1','1!'}, {'2','2@'}, 'BackSpace', 0);
+    % inp = input('Which target to play? (Enter 1/2 to choose, 0 to skip): ');
     if inp > 0
-        Tseq= cSOAs.PP;
+        showInstruc(w, 'Test', instFolder, 'space', 'BackSpace', 0);
+        Tseq= rand(1, length(cSOAs.AUl)) * diff(rdSOA) + rdSOA(1); % randomize the target sequence
         ITI = min(ITIs)+rand*diff(ITIs);
-        tSOA = tSOAs.PP(randi(length(tSOAs.PP)));
+        tSOA = tSOAs.AUl(randi(length(tSOAs.AUl)));
         stream = genStream(min(ITIs),ITI,Tseq,cFreq,tSOA,tFreq(inp),maxRT,stiD,sampRate,noiseAmp,cueAmp,mean([cueAmp,gstgAmp]),ramp);
         PsychPortAudio('FillBuffer', pahandle, [stream; stream]);
         t0 = PsychPortAudio('Start', pahandle, 1, 0, 1);
@@ -167,32 +292,27 @@ while 1
             if sum(keyCode) == 1    % make sure only one key is pressed
                 if keyCode(KbName(keys{inp})) % correct key is pressed
                     disp('Correct!')
+                    showInstruc(w, 'Correct', instFolder, 'space', 'BackSpace', 1);
                     break
                 elseif keyCode(KbName(keys{3-inp})) % wrong key is pressed
                     disp('Wrong!')
+                    showInstruc(w, 'Wrong', instFolder, 'space', 'BackSpace', 1);
                     break
                 end
             end
             WaitSecs(0.005);
         end
-        if GetSecs > timeout
+        if keyT > timeout
             disp('Time OUT!')
         end
         PsychPortAudio('Stop', pahandle,1);
-    else
+    else % inp == -1 by backspace key
         break
     end
 end
 % generate embedded stream
 % 'one up two down' staircase to get mixture ratio
 corrCount = 0;  % counting correct times for staircase procedure
-scr = 1; % max(Screen('Screens')); % 1; for 604-4
-[w,winRect] = Screen('OpenWindow',scr,127);
-scWidth = Screen('DisplaySize',scr)/10; % in cm
-Screen('TextSize',w,textSize);
-ut = UT(scWidth,winRect(3),headDist,false);
-dotpRad = ut.deg2pix(fixSize)/2; % radius of fixation dot in pixcel
-dotRect = [-dotpRad,-dotpRad,dotpRad,dotpRad]+[winRect(3),winRect(4),winRect(3),winRect(4)]./2;
 
 lastChange = 0; 
 changeIdx = 0;
@@ -222,10 +342,12 @@ q.normalizePdf = 1; % Recommended for better performance
 q = QuestUpdate(q, log10(0.001), 0);             % initialization with no prior data
 q = QuestUpdate(q, log10(cueAmp), 1); % initialization with known over-threshold cue amplitude
 
+showInstruc(w, 'Formal_A', instFolder, 'space', 'BackSpace', 1);
+
 for i = 1:pretNum
     if mod(i, checkPer) == 1 && i>1% each 10 trial rest 1s+
         if checkScreen == 1
-            oper = showTrialStats(w, i, checkPer, results, 0, 'Return', 'BackSpace', instFolder, 'Check');
+            oper = showTrialStats(w, i, checkPer, results, 0, 'Return', 'BackSpace', instFolder, 'WaitExper_Check');
             checkScreen = checkScreen*oper; % if oper == -1, then change to rest screen
         else
             oper = showInstruc_Rest(w, 'Rest', instFolder, 'space', 'BackSpace', 1);
@@ -342,13 +464,13 @@ if scr==0
 else
     checkScreen = -1;
 end
-for i = pretNum + (1:triNum)
+for i = pretNum + (1:4*triNum)
     if mod(i-pretNum, triNum) == 1 && (i-pretNum)>1% each block rest 10s+
         oper = showInstruc_Rest(w,'Rest',instFolder,'space','backspace',10);
         checkScreen = checkScreen*oper; % if oper == -1, then change check/rest screen setting
     elseif mod(i-pretNum, checkPer) == 1 && (i-pretNum)>1% each 15 trial rest 2s+
         if checkScreen == 1
-            oper = showTrialStats(w, i, checkPer, results, pretNum, 'Return', 'BackSpace', instFolder, 'Check');
+            oper = showTrialStats(w, i, checkPer, results, pretNum, 'Return', 'BackSpace', instFolder, 'WaitExper_Check');
             checkScreen = checkScreen*oper; % if oper == -1, then change to rest screen
         else
             oper = showInstruc_Rest(w, 'Rest', instFolder, 'space', 'BackSpace', 1);
