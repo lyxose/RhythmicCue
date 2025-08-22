@@ -30,29 +30,31 @@ function [texture, CentrRect] = drawCentImg(wptr, imgpath, zoom, close)
     % Read image metadata using imfinfo
     info = imfinfo(imgpath);
     try
-        orientation = info.Orientation;
-        
-        % Adjust image orientation based on EXIF metadata
-        switch orientation
-            case 2 % Horizontal flip
-                img = fliplr(img);
-            case 3 % Rotate 180 degrees
-                img = rot90(img, 2);
-            case 4 % Vertical flip
-                img = flipud(img);
-            case 5 % Transpose and horizontal flip
-                img = rot90(fliplr(img));
-            case 6 % Rotate 90 degrees clockwise
-                img = rot90(img, -1);
-            case 7 % Transpose and vertical flip
-                img = rot90(flipud(img));
-            case 8 % Rotate 90 degrees counterclockwise
-                img = rot90(img);
+        if isfield(info, 'Orientation')
+            orientation = info.Orientation;
+            
+            % Adjust image orientation based on EXIF metadata
+            switch orientation
+                case 2 % Horizontal flip
+                    img = fliplr(img);
+                case 3 % Rotate 180 degrees
+                    img = rot90(img, 2);
+                case 4 % Vertical flip
+                    img = flipud(img);
+                case 5 % Transpose and horizontal flip
+                    img = rot90(fliplr(img));
+                case 6 % Rotate 90 degrees clockwise
+                    img = rot90(img, -1);
+                case 7 % Transpose and vertical flip
+                    img = rot90(flipud(img));
+                case 8 % Rotate 90 degrees counterclockwise
+                    img = rot90(img);
+            end
         end
     catch me
         disp(me)
-        disp('There may not be any orientation information in this img file')
     end
+
 
     % Create a texture object from the image
     texture = Screen('MakeTexture', wptr, img);
