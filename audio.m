@@ -116,7 +116,7 @@ preCatNum = pretNum * catTriR; % catch trial number in pretrial stage
 preTruNum = pretNum-preCatNum;
 
 [~,block] = expRun.generateTrialList('ID',nan,'cueType', ...
-    {'AUl','AUs'},'t0',nan,'ITI',nan,'cSOA',{[]},'tSOA',1:sum(tSOAp),'tFreq', ...
+    {'AUl'},'t0',nan,'ITI',nan,'cSOA',{[]},'tSOA',1:sum(tSOAp),'tFreq', ...
     1:length(tFreq),'tgAmp',nan,'tgTime',nan,'RT',nan, 'Key',{''},...
     'judge',0,'soaSeed',nan,'noiseSeed',nan);
 [~,catchs] = expRun.generateTrialList('ID',nan,'cueType', ...
@@ -206,7 +206,7 @@ try
 pahandle = PsychPortAudio('Open', deviceID, 1, 3, sampRate, 2);
 
 % titrate white noise volume
-PsychPortAudio('Volume',pahandle,0.004);% 0.003 for 604-5 ; 0.004 for 604-4 with TANGMAI earphone
+PsychPortAudio('Volume',pahandle,0.035);% 0.003 for 604-5 ; 0.004 for 604-4 with TANGMAI earphone
 while 1
     WN = noiseAmp.*(2.*rand(1,2.*sampRate)-1);
     PsychPortAudio('FillBuffer', pahandle, [WN; WN]);

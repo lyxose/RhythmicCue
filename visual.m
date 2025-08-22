@@ -115,7 +115,7 @@ preCatNum = pretNum * catTriR; % catch trial number in pretrial stage
 preTruNum = pretNum-preCatNum;
 
 [~,block] = expRun.generateTrialList('ID',nan,'cueType', ...
-    {'AUl','AUs'},'t0',nan,'ITI',nan,'cSOA',{[]},'tSOA',1:sum(tSOAp),'tTilt', ...
+    {'AUl'},'t0',nan,'ITI',nan,'cSOA',{[]},'tSOA',1:sum(tSOAp),'tTilt', ...
     1:length(tTilt),'tgAmp',nan,'tgTime',nan,'RT',nan, 'Key',{''},...
     'judge',0,'soaSeed',nan,'noiseSeed',nan);
 [~,catchs] = expRun.generateTrialList('ID',nan,'cueType', ...
@@ -282,7 +282,7 @@ while 1
         disp('Temporal Error = ')
         disp(fbTs-tempSeq);
         
-        timeout = tgTime+stiD+2;
+        timeout = tgTime+stiD+maxRT;
         while GetSecs < timeout
             [keyIsDown, keyT, keyCode] = KbCheck;
             if sum(keyCode) == 1    % make sure only one key is pressed

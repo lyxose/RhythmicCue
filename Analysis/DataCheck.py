@@ -9,6 +9,72 @@ from scipy.stats import ttest_rel
 
 YLutilpy.default_img_set()
 
+
+for subIDs in [[1],[2]]:  # 被试编号
+# for subIDs in [[4]]:  # 被试编号
+    for prefix_types in [['A'],['V']]:  # 组编号
+        groupID = 1
+        all_dfs = []
+
+        # 加载数据
+        # 初始化存储每个被试的平均值
+        rt_means = {}
+        acc_means = {}
+        ratio_means = {}
+        for prefix_type in prefix_types:  # 可扩展到其他模态如'A'
+            for subID in subIDs:
+                prefix = f"../Data/{prefix_type}_Result_G{groupID}_Sub{subID}_"
+                files = glob.glob(prefix + "*.csv")
+                if not files:
+                    continue
+                filename = files[0]
+                df_tmp = pd.read_csv(filename)
+                df_tmp = df_tmp[df_tmp['ID'] > 0 ]  # 保留有效ID
+                df_tmp['subID'] = subID
+                df_tmp['modality'] = prefix_type
+                # 去除RT 大于或小于2.5个标准差的行
+                df_tmp = df_tmp[(df_tmp['RT'] < df_tmp['RT'].mean() + 2.5 * df_tmp['RT'].std()) & 
+                                (df_tmp['RT'] > df_tmp['RT'].mean() - 2.5 * df_tmp['RT'].std()) |
+                                (df_tmp['RT'].isna())]  # 保留RT为NaN的行（错误反应）
+                all_dfs.append(df_tmp)
+        if not all_dfs:
+            raise FileNotFoundError("No data files found.")
+
+        df = pd.concat(all_dfs, ignore_index=True)
+
+        df['tSOA_group'] = df.groupby('cueType')['tSOA'].rank(method='dense').astype(int)    
+        # 将tSOA_group映射成字符标签
+        tsoa_group_mapping = {1: 'Short ', 2: 'Long'}
+        # 根据cueType和tSOA_group的关系确定validity
+        df['validity'] = np.where(
+            ((df['cueType'] == 'AUl') & (df['tSOA_group'] == 'Long')), 'valid',
+            np.where(
+                ((df['cueType'] == 'AUs') & (df['tSOA_group'] == 'Short')), 'invalid',
+                np.where(
+                    ((df['cueType'] == 'AUs') & (df['tSOA_group'] == 'Short')), 'valid',
+                    np.where(
+                        ((df['cueType'] == 'AUs') & (df['tSOA_group'] == 'Long')), 'invalid',
+                        None
+                    )
+                )
+            )
+        )
+
+        # 将数据转换为表格形式
+        table_RT = df[df['judge'] == 1].groupby(['subID', 'cueType', 'tSOA_group'])['RT'].mean().unstack(['tSOA_group'])
+        table_Acc = df.groupby(['subID', 'cueType', 'tSOA_group'])['judge'].mean().unstack(['tSOA_group'])
+        table_ratio = np.divide(table_RT,table_Acc)
+
+# %% 
+import pandas as pd
+import glob
+import matplotlib.pyplot as plt
+import YLutilpy
+import numpy as np
+from scipy.stats import ttest_rel
+
+YLutilpy.default_img_set()
+
 # 支持多个subID和两种类型（V和A）的文件读取与合并[1],[2],[3],[4],[5],
 for subIDs in [[2,3,4,5,6,7,8,9,10,11]]:  # 被试编号
 # for subIDs in [[4]]:  # 被试编号
