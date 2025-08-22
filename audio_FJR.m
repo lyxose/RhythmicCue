@@ -72,13 +72,16 @@ keyCodes = KbName(keys);           % response keyCodes
 noiseAmp = 0.1;                    % 90% amplitude is remained for titrating target loudness
 cueAmp   = 0.4;                    % fixed amplitude which should be clear enough for all person
 fixSize  = 0.162*2;                % diameter of fixation dot, in degree 
-if gstgAmp == 0
-    gstgAmp  = 0.05;               % guessed amplitude of target (as the start point of staircase)
-end
 ampStep  = gstgAmp/10;             % staircase step of target amplitude
 dynaStep = 0.8;                    % dynamicly decrease after each reverse (set to 1 to keep stepsize consistent)
 textSize = 30;
 
+maxRT    = input(sprintf('maxRT(s, default %.2f):',maxRT));                      % skip to next trial in 2s (facilitating post-target EEG analysis)
+stiD =  input(sprintf('stimulus duration(s, default %.2f):',stiD));                    % duration of each flash
+cueAmp   = input(sprintf('Beep amplitude, should be clear enough!!(0~1, default %.2f):',cueAmp));          % fixed amplitude which should be clear enough for all person
+if gstgAmp == 0
+    gstgAmp  = cueAmp*0.1;               % guessed amplitude of target (as the start point of staircase)
+end
 %% trial-results table
 preCatNum = pretNum * catTriR; % catch trial number in pretrial stage
 preTruNum = pretNum-preCatNum;
@@ -230,6 +233,7 @@ while 1
         end
         if keyT > timeout
             disp('Time OUT!')
+            showInstruc(w, 'TimeOut', instFolder, 'space', 'BackSpace', 1);
         end
         PsychPortAudio('Stop', pahandle,1);
     else % inp == -1 by backspace key

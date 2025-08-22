@@ -58,6 +58,7 @@ end
 deviceID = input(['Choose correct audio device and input its DeviceIndex ' ...
                   '\n(priority: ASIO > WASAPI > WDM-KS > DS > MNE): ']);
 sampRate = DeviceTable.DefaultSampleRate(DeviceTable.DeviceIndex==deviceID);
+
 triNum   = 90;                     % trial number of each schedule condition, should be an integer multiple of length(tSOA)
 catTriR  = 0;                      % catch trial rate of whole experiment
 checkPer = 15;                     % check performance each "checkPer" trials
@@ -73,12 +74,18 @@ cueAmp   = 0.3;                    % fixed contrast which should be clear enough
 fixSize  = 0.162;                  % diameter of fixation dot, in degree
 GaborWidth = 1.2; % target width in degree
 GaborSF = 2;        % cycle per degree
-if gstgAmp == 0
-    gstgAmp  = 0.008;               % guessed contrast of target (as the start point of staircase)
-end
+
 ampStep  = gstgAmp/10;             % staircase step of target amplitude
 dynaStep = 0.8;                    % dynamicly decrease after each reverse (set to 1 to keep stepsize consistent)
 textSize = 30;
+
+maxRT    = input(sprintf('maxRT(s, default %.2f):',maxRT));                      % skip to next trial in 2s (facilitating post-target EEG analysis)
+GaborWidth = input(sprintf('Gabor Width(deg, default %.2f):',GaborWidth)); % target width in degree
+cueAmp = input(sprintf('Gabor contrast, should be clear enough!!(0~1, default %.2f):',cueAmp));          % fixed contrast which should be clear enough for all person
+stiD =  input(sprintf('stimulus duration(s, default %.2f):',stiD));                    % duration of each flash
+if gstgAmp == 0
+    gstgAmp  = 0.1*cueAmp;               % guessed contrast of target (as the start point of staircase)
+end
 
 %% trial-results table
 preCatNum = pretNum * catTriR; % catch trial number in pretrial stage
@@ -213,7 +220,8 @@ while 1
         disp('Temporal Error = ')
         disp(fbTs-tempSeq);
         
-        timeout = tgTime+stiD+2;
+        timeout = tgTime+stiD+maxRT;
+        keyT = timeout+1; % when no key pressed in expected duration
         while GetSecs < timeout
             [keyIsDown, keyT, keyCode] = KbCheck;
             if sum(keyCode) == 1    % make sure only one key is pressed
@@ -232,6 +240,7 @@ while 1
         end
         if keyT > timeout
             disp('Time OUT!')
+            showInstruc(w, 'TimeOut', instFolder, 'space', 'BackSpace', 1);
         end
         WaitSecs('UntilTime', timeout);
     else
